@@ -3,8 +3,13 @@ package uz.zarflow.shared.exception;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
+import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.web.servlet.MockMvc;
 
 import uz.zarflow.shared.config.LocaleConfig;
@@ -16,12 +21,28 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * This test is only about ProblemDetail shape, not auth, so it overrides the
+ * security chain with a permit-all one — real security behavior on protected
+ * endpoints is covered by SecurityIntegrationTests. RequestIdFilter (a plain
+ * Filter bean, unrelated to Spring Security) stays active either way.
+ */
 @WebMvcTest(controllers = ProbeController.class)
 @Import(LocaleConfig.class)
 class GlobalExceptionHandlerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @TestConfiguration
+    static class PermitAllSecurityConfig {
+        @Bean
+        SecurityFilterChain testFilterChain(HttpSecurity http) throws Exception {
+            http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+                    .csrf(CsrfConfigurer::disable);
+            return http.build();
+        }
+    }
 
     @Test
     void notFoundShapeIs404() throws Exception {

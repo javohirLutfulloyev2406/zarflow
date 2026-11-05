@@ -36,6 +36,11 @@ class GlobalExceptionHandler {
         return problem(HttpStatus.NOT_FOUND, ex.getErrorCode(), ex.getArgs(), locale);
     }
 
+    @ExceptionHandler(UnauthorizedException.class)
+    ProblemDetail handleUnauthorized(UnauthorizedException ex, Locale locale) {
+        return problem(HttpStatus.UNAUTHORIZED, ex.getErrorCode(), ex.getArgs(), locale);
+    }
+
     @ExceptionHandler(ConflictException.class)
     ProblemDetail handleConflict(ConflictException ex, Locale locale) {
         return problem(HttpStatus.CONFLICT, ex.getErrorCode(), ex.getArgs(), locale);
