@@ -35,3 +35,10 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Project ###
+.idea/
+target/
+build/
+node_modules/
+.env

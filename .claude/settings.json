@@ -1,0 +1,10 @@
+{
+  "denyCommands": [
+    "rm -rf *",
+    "cat .env*",
+    "export $(cat .env*)"
+  ],
+  "hooks": {
+    "preCommit": "mvn test"
+  }
+}
