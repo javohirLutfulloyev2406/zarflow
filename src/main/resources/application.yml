@@ -41,17 +41,3 @@ spring:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${POSTGRES_DB:zarflow}
     username: ${POSTGRES_USER:zarflow}
     password: ${POSTGRES_PASSWORD:zarflow}
-
----
-spring:
-  config:
-    activate:
-      on-profile: test
-
-zarflow:
-  auth:
-    bot-token: test-bot-token-fixture
-  jwt:
-    secret: zarflow-test-jwt-signing-secret-do-not-use
-  cors:
-    allowed-origins: http://localhost:3000
