@@ -1,4 +1,4 @@
-package uz.zarflow.zarflow;
+package uz.zarflow;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

@@ -1,4 +1,4 @@
-package uz.zarflow.zarflow;
+package uz.zarflow;
 
 import org.springframework.boot.SpringApplication;
 

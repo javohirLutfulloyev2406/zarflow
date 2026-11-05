@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-zarflow}
+      POSTGRES_USER: ${POSTGRES_USER:-zarflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zarflow}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zarflow} -d ${POSTGRES_DB:-zarflow}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      DB_HOST: postgres
+      DB_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-zarflow}
+      POSTGRES_USER: ${POSTGRES_USER:-zarflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zarflow}
+    ports:
+      - "8080:8080"
+
+volumes:
+  pgdata:

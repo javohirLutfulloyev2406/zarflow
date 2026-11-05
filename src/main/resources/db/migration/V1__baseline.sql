@@ -1,0 +1,2 @@
+-- Baseline migration for Phase 0 (project skeleton).
+-- No schema objects yet; real tables (users, accounts, categories, ...) start in issue #2.

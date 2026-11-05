@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: zarflow
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  mvc:
+    problemdetails:
+      enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+zarflow:
+  default-timezone: Asia/Tashkent
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${POSTGRES_DB:zarflow}
+    username: ${POSTGRES_USER:zarflow}
+    password: ${POSTGRES_PASSWORD:zarflow}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
