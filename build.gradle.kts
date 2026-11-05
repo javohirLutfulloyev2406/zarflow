@@ -47,4 +47,8 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    // Activated here, not via a src/test/resources/application.yml, which would shadow
+    // src/main/resources/application.yml on the test classpath (same resource path,
+    // single-resource lookup -- the test one wins outright, the main one is never read).
+    systemProperty("spring.profiles.active", "test")
 }

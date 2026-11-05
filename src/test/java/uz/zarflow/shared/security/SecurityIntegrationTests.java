@@ -65,7 +65,8 @@ class SecurityIntegrationTests {
 
     @Test
     void expiredTokenIsUnauthorized() {
-        String token = token(jwtEncoder, UUID.randomUUID(), "zarflow", Duration.ofSeconds(-120));
+        Instant now = Instant.now(clock);
+        String token = token(jwtEncoder, UUID.randomUUID(), "zarflow", now.minusSeconds(300), now.minusSeconds(120));
 
         ResponseEntity<String> response = restTemplate.exchange(
                 RequestEntity.get("/probe/secured").header("Authorization", "Bearer " + token).build(), String.class);
@@ -99,12 +100,17 @@ class SecurityIntegrationTests {
 
     private String token(JwtEncoder encoder, UUID subject, String issuer, Duration ttlFromNow) {
         Instant now = Instant.now(clock);
+        return token(encoder, subject, issuer, now, now.plus(ttlFromNow));
+    }
+
+    /** Jwt's own constructor requires expiresAt to be strictly after issuedAt, even for an "expired" fixture. */
+    private String token(JwtEncoder encoder, UUID subject, String issuer, Instant issuedAt, Instant expiresAt) {
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .issuer(issuer)
                 .subject(subject.toString())
-                .issuedAt(now)
-                .expiresAt(now.plus(ttlFromNow))
+                .issuedAt(issuedAt)
+                .expiresAt(expiresAt)
                 .build();
         return encoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
     }
