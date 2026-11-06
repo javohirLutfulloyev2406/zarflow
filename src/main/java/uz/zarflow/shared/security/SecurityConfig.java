@@ -48,6 +48,9 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/telegram").permitAll()
+                        // No JWT here by design -- TelegramWebhookGuardFilter (registered only
+                        // for this path, runs before this filter chain) enforces the secret
+                        // token instead.
                         .requestMatchers(HttpMethod.POST, "/telegram/webhook").permitAll()
                         .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
                         .requestMatchers(openApiPermittedPaths.toArray(String[]::new)).permitAll()
