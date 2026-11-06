@@ -48,11 +48,9 @@ class UserProfilesService implements UserProfiles {
     @Override
     @Transactional(readOnly = true)
     public ZoneId zoneOf(UUID userId) {
-        return userRepository.findByIdAndDeletedAtIsNull(userId)
+        return resolveZone(userRepository.findByIdAndDeletedAtIsNull(userId)
                 .map(User::getTimezone)
-                .flatMap(this::parseZone)
-                .orElseGet(() -> parseZone(zarflowProperties.defaultTimezone())
-                        .orElse(ZoneId.of("UTC")));
+                .orElse(null));
     }
 
     @Override
@@ -81,13 +79,16 @@ class UserProfilesService implements UserProfiles {
 
     private UserSummary toSummary(User user) {
         BigDecimal income = user.getExpectedMonthlyIncome();
-        ZoneId zone = parseZone(user.getTimezone())
-                .orElseGet(() -> parseZone(zarflowProperties.defaultTimezone()).orElse(ZoneId.of("UTC")));
         return new UserSummary(
                 user.getId(),
                 user.getLanguage(),
-                zone,
+                resolveZone(user.getTimezone()),
                 income == null ? null : Money.of(income));
+    }
+
+    private ZoneId resolveZone(String zoneId) {
+        return parseZone(zoneId)
+                .orElseGet(() -> parseZone(zarflowProperties.defaultTimezone()).orElse(ZoneId.of("UTC")));
     }
 
     private Optional<ZoneId> parseZone(String zoneId) {
