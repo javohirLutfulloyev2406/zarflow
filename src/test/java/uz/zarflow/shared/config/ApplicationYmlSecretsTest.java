@@ -27,6 +27,8 @@ class ApplicationYmlSecretsTest {
                 Map<String, Object> document = (Map<String, Object>) doc;
                 assertPlaceholderIfPresent(document, "auth", "bot-token");
                 assertPlaceholderIfPresent(document, "jwt", "secret");
+                assertPlaceholderIfPresent(document, "telegram", "bot-token");
+                assertPlaceholderIfPresent(document, "telegram", "webhook-secret");
             }
         }
     }
