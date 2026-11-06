@@ -1,5 +1,6 @@
 package uz.zarflow.telegram;
 
+import java.time.Duration;
 import java.util.regex.Pattern;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -11,7 +12,9 @@ record TelegramBotProperties(
         String webhookSecret,
         String webhookUrl,
         String miniAppUrl,
-        @DefaultValue("false") boolean registerWebhook) {
+        @DefaultValue("false") boolean registerWebhook,
+        @DefaultValue("5s") Duration connectTimeout,
+        @DefaultValue("10s") Duration callTimeout) {
 
     private static final Pattern SECRET_PATTERN = Pattern.compile("[A-Za-z0-9_-]{1,256}");
 
@@ -29,11 +32,19 @@ record TelegramBotProperties(
         if (registerWebhook) {
             requireHttps(webhookUrl, "zarflow.telegram.webhook-url");
         }
+        requirePositive(connectTimeout, "zarflow.telegram.connect-timeout");
+        requirePositive(callTimeout, "zarflow.telegram.call-timeout");
     }
 
     private static void requireHttps(String url, String propertyName) {
         if (url == null || !url.startsWith("https://")) {
             throw new IllegalStateException(propertyName + " must be an https:// URL");
+        }
+    }
+
+    private static void requirePositive(Duration duration, String propertyName) {
+        if (duration == null || duration.isNegative() || duration.isZero()) {
+            throw new IllegalStateException(propertyName + " must be a positive duration");
         }
     }
 
