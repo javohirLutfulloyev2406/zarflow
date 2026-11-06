@@ -1,11 +1,171 @@
+import { useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+
+import { EmptyStateCard } from "../components/EmptyStateCard";
+import { SkeletonCard } from "../components/SkeletonCard";
+import { setAuthState } from "../auth/store";
+import { ApiError } from "../api/problemDetail";
+import type { Language, UpdateSettingsRequest, UserProfile } from "../api/types";
+import { getMe, updateSettings } from "../api/users";
+import { useDictionary } from "../i18n/dictionary";
 import { useBackButton } from "../telegram/useBackButton";
+import { useTimezoneSearch } from "./useTimezoneSearch";
 
 export function Profile() {
   useBackButton(true);
+  const dictionary = useDictionary();
+  const { data, isPending, isError, refetch } = useQuery({
+    queryKey: ["me"],
+    queryFn: getMe,
+  });
 
   return (
-    <div className="p-4">
-      <h1 className="font-heading text-lg font-semibold">Profile</h1>
+    <div className="flex flex-col gap-4 p-4">
+      <h1 className="font-heading text-lg font-semibold">{dictionary.profile.title}</h1>
+      {isPending ? <SkeletonCard label="" /> : null}
+      {isError ? <EmptyStateCard>{dictionary.error.generic}</EmptyStateCard> : null}
+      {data ? <ProfileForm profile={data} onReload={refetch} /> : null}
+    </div>
+  );
+}
+
+function ProfileForm({
+  profile,
+  onReload,
+}: {
+  profile: UserProfile;
+  onReload: () => void;
+}) {
+  const dictionary = useDictionary();
+  const [language, setLanguage] = useState<Language>(profile.language);
+  const [timezone, setTimezone] = useState(profile.timezone);
+  const [income, setIncome] = useState(profile.expectedMonthlyIncome ?? "");
+  const { query, setQuery, matches } = useTimezoneSearch(profile.timezone);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [message, setMessage] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: (body: UpdateSettingsRequest) => updateSettings(body),
+    onSuccess: (updated) => {
+      setAuthState({ language: updated.language });
+      setFieldErrors({});
+      setMessage(dictionary.profile.saved);
+    },
+    onError: (err: unknown) => {
+      if (err instanceof ApiError) {
+        if (err.status === 409) {
+          setMessage(dictionary.profile.conflict);
+          onReload();
+          return;
+        }
+        const errors: Record<string, string> = {};
+        for (const fieldError of err.problem.errors ?? []) {
+          errors[fieldError.field] = fieldError.message;
+        }
+        setFieldErrors(errors);
+        setMessage(err.problem.detail ?? null);
+        return;
+      }
+      setMessage(dictionary.error.generic);
+    },
+  });
+
+  function handleSave() {
+    setMessage(null);
+    mutation.mutate({
+      language,
+      timezone,
+      expectedMonthlyIncome: income.trim() === "" ? null : income.trim(),
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <p className="text-xs text-slate-400">{dictionary.profile.firstName}</p>
+        <p className="text-sm">{profile.firstName}</p>
+      </div>
+
+      <div>
+        <p className="mb-1 text-xs text-slate-400">{dictionary.profile.language}</p>
+        <div className="flex gap-2">
+          {(["uz", "ru"] as const).map((lang) => (
+            <button
+              key={lang}
+              type="button"
+              onClick={() => setLanguage(lang)}
+              className={`rounded-full px-4 py-1 text-sm ${
+                language === lang ? "bg-emerald-700 text-ivory-50" : "bg-navy-800 text-slate-400"
+              }`}
+            >
+              {lang.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-xs text-slate-400" htmlFor="timezone-search">
+          {dictionary.profile.timezone}
+        </label>
+        <input
+          id="timezone-search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={dictionary.profile.timezoneSearchPlaceholder}
+          className="w-full rounded-lg bg-navy-800 px-3 py-2 text-sm text-ivory-50"
+        />
+        <ul className="mt-1 max-h-32 overflow-y-auto rounded-lg bg-navy-800">
+          {matches.map((zone) => (
+            <li key={zone}>
+              <button
+                type="button"
+                onClick={() => {
+                  setTimezone(zone);
+                  setQuery(zone);
+                }}
+                className={`w-full px-3 py-1 text-left text-sm ${
+                  zone === timezone ? "text-gold-400" : "text-slate-400"
+                }`}
+              >
+                {zone}
+              </button>
+            </li>
+          ))}
+        </ul>
+        {fieldErrors.timezone ? (
+          <p className="text-xs text-warn-400">{fieldErrors.timezone}</p>
+        ) : null}
+      </div>
+
+      <div>
+        <label className="mb-1 block text-xs text-slate-400" htmlFor="income">
+          {dictionary.profile.expectedMonthlyIncome}
+        </label>
+        <input
+          id="income"
+          type="text"
+          inputMode="decimal"
+          value={income}
+          onChange={(event) => setIncome(event.target.value)}
+          placeholder={dictionary.profile.incomePlaceholder}
+          className="w-full rounded-lg bg-navy-800 px-3 py-2 text-sm text-ivory-50"
+        />
+        {fieldErrors.expectedMonthlyIncome ? (
+          <p className="text-xs text-warn-400">{fieldErrors.expectedMonthlyIncome}</p>
+        ) : null}
+      </div>
+
+      {message ? <p className="text-sm text-success-400">{message}</p> : null}
+
+      <button
+        type="button"
+        onClick={handleSave}
+        disabled={mutation.isPending}
+        className="rounded-full bg-emerald-700 py-3 text-sm font-medium text-ivory-50 disabled:opacity-50"
+      >
+        {dictionary.profile.save}
+      </button>
     </div>
   );
 }

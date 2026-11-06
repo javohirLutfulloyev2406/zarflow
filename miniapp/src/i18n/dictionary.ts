@@ -24,6 +24,18 @@ export interface Dictionary {
     title: string;
     button: string;
   };
+  profile: {
+    title: string;
+    firstName: string;
+    language: string;
+    timezone: string;
+    timezoneSearchPlaceholder: string;
+    expectedMonthlyIncome: string;
+    incomePlaceholder: string;
+    save: string;
+    saved: string;
+    conflict: string;
+  };
   error: {
     generic: string;
   };
@@ -52,6 +64,18 @@ const uz: Dictionary = {
     title: "Tez kiritish tez orada. Hozircha botga yozing: 25000 tushlik",
     button: "Botga o'tish",
   },
+  profile: {
+    title: "Profil",
+    firstName: "Ism",
+    language: "Til",
+    timezone: "Vaqt zonasi",
+    timezoneSearchPlaceholder: "Shahar yoki hudud qidiring",
+    expectedMonthlyIncome: "Oylik kutilgan daromad",
+    incomePlaceholder: "Masalan: 8500000",
+    save: "Saqlash",
+    saved: "Saqlandi",
+    conflict: "Ma'lumotlar boshqa joyda o'zgartirildi. Qayta yuklandi.",
+  },
   error: {
     generic: "Kutilmagan xatolik yuz berdi. Ilovani qayta ochib ko'ring.",
   },
@@ -79,6 +103,18 @@ const ru: Dictionary = {
   quickAdd: {
     title: "Быстрый ввод скоро появится. Пока пишите боту: 25000 обед",
     button: "Перейти к боту",
+  },
+  profile: {
+    title: "Профиль",
+    firstName: "Имя",
+    language: "Язык",
+    timezone: "Часовой пояс",
+    timezoneSearchPlaceholder: "Найдите город или регион",
+    expectedMonthlyIncome: "Ожидаемый доход в месяц",
+    incomePlaceholder: "Например: 8500000",
+    save: "Сохранить",
+    saved: "Сохранено",
+    conflict: "Данные были изменены в другом месте. Перезагружено.",
   },
   error: {
     generic: "Произошла непредвиденная ошибка. Откройте приложение ещё раз.",
