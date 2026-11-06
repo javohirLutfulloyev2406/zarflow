@@ -9,6 +9,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
@@ -32,18 +34,21 @@ class TelegramUpdateService {
     private final TelegramGateway telegramGateway;
     private final MessageSource messageSource;
     private final TelegramBotProperties properties;
+    private final TransactionTemplate transactionTemplate;
 
     TelegramUpdateService(
             JdbcTemplate jdbcTemplate,
             UserAccounts userAccounts,
             TelegramGateway telegramGateway,
             MessageSource messageSource,
-            TelegramBotProperties properties) {
+            TelegramBotProperties properties,
+            PlatformTransactionManager transactionManager) {
         this.jdbcTemplate = jdbcTemplate;
         this.userAccounts = userAccounts;
         this.telegramGateway = telegramGateway;
         this.messageSource = messageSource;
         this.properties = properties;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     void handle(Update update) {
@@ -64,13 +69,22 @@ class TelegramUpdateService {
         if (from == null || Boolean.TRUE.equals(from.getIsBot())) {
             return;
         }
-        if (!claimUpdate(update.getUpdateId())) {
+        // Claiming update_id and registering the user must commit or roll back together:
+        // if registerOrUpdate throws, the claim must not survive on its own, or this
+        // update_id would be permanently marked "processed" despite never actually
+        // being handled, with no way to reprocess it later.
+        UserAccounts.LoginResult loginResult = transactionTemplate.execute(status -> {
+            if (!claimUpdate(update.getUpdateId())) {
+                return null;
+            }
+            return userAccounts.registerOrUpdate(new UserAccounts.TelegramProfile(
+                    from.getId(), from.getFirstName(), from.getLastName(), from.getUserName(),
+                    from.getLanguageCode()));
+        });
+        if (loginResult == null) {
             log.debug("Duplicate update_id {}, skipping", update.getUpdateId());
             return;
         }
-
-        UserAccounts.LoginResult loginResult = userAccounts.registerOrUpdate(new UserAccounts.TelegramProfile(
-                from.getId(), from.getFirstName(), from.getLastName(), from.getUserName(), from.getLanguageCode()));
 
         Locale locale = Locale.of(loginResult.language());
         String command = extractCommand(message.getText());

@@ -37,14 +37,26 @@ class TelegramBotStartupRunner implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
+        // Off the startup critical path: these are blocking Telegram API calls, and
+        // ApplicationRunner.run() otherwise delays "Started Application" (and any
+        // deployment tooling waiting on it) until all four complete or time out.
+        Thread.ofVirtual().start(this::registerWithTelegram);
+    }
+
+    void registerWithTelegram() {
         tryRun("setWebhook", () -> gateway.setWebhook(
-                properties.webhookUrl() + "/telegram/webhook",
+                webhookUrl() + TelegramWebhookController.WEBHOOK_PATH,
                 properties.webhookSecret(),
                 List.of("message", "callback_query"),
                 false));
         tryRun("setChatMenuButton", () -> gateway.setChatMenuButton("ZarFlow", properties.miniAppUrl()));
         tryRun("setMyCommands(uz/default)", () -> gateway.setMyCommands(COMMANDS_UZ, null));
         tryRun("setMyCommands(ru)", () -> gateway.setMyCommands(COMMANDS_RU, "ru"));
+    }
+
+    private String webhookUrl() {
+        String url = properties.webhookUrl();
+        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
 
     private void tryRun(String step, Runnable action) {

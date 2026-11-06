@@ -1,6 +1,8 @@
 package uz.zarflow.telegram;
 
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 
@@ -16,7 +18,7 @@ class TelegramBotStartupRunnerTest {
         FakeTelegramGateway gateway = new FakeTelegramGateway();
         TelegramBotStartupRunner runner = new TelegramBotStartupRunner(gateway, properties);
 
-        runner.run(null);
+        runner.registerWithTelegram();
 
         assertThat(gateway.setWebhookCalls()).hasSize(1);
         assertThat(gateway.setWebhookCalls().get(0).url()).isEqualTo("https://example.test/telegram/webhook");
@@ -40,10 +42,35 @@ class TelegramBotStartupRunnerTest {
         };
         TelegramBotStartupRunner runner = new TelegramBotStartupRunner(gateway, properties);
 
-        runner.run(null);
+        runner.registerWithTelegram();
 
         assertThat(gateway.setChatMenuButtonCalls()).hasSize(1);
         assertThat(gateway.setMyCommandsCalls()).hasSize(2);
+    }
+
+    @Test
+    void runReturnsImmediatelyWithoutWaitingForTelegram() throws InterruptedException {
+        CountDownLatch releaseGateway = new CountDownLatch(1);
+        FakeTelegramGateway gateway = new FakeTelegramGateway() {
+            @Override
+            public void setWebhook(String url, String secretToken, List<String> allowedUpdates, boolean dropPendingUpdates) {
+                try {
+                    releaseGateway.await(5, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        };
+        TelegramBotStartupRunner runner = new TelegramBotStartupRunner(gateway, properties);
+
+        long start = System.nanoTime();
+        runner.run(null);
+        long elapsedMillis = (System.nanoTime() - start) / 1_000_000;
+
+        // If run() still called the gateway synchronously, this would take ~5s (or the
+        // full latch timeout) instead of returning almost instantly.
+        assertThat(elapsedMillis).isLessThan(500);
+        releaseGateway.countDown();
     }
 
 }
