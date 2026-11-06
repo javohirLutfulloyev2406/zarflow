@@ -72,22 +72,26 @@ class TelegramGatewayImpl implements TelegramGateway {
     }
 
     private <T extends Serializable, M extends BotApiMethod<T>> void execute(M method, String methodName) {
+        call(methodName, () -> telegramClient.execute(method));
+    }
+
+    /** SetWebhook extends PartialBotApiMethod directly, not BotApiMethod, so it needs its own client overload. */
+    private void executeSetWebhook(SetWebhook method) {
+        call("setWebhook", () -> telegramClient.execute(method));
+    }
+
+    private void call(String methodName, TelegramCall call) {
         try {
-            telegramClient.execute(method);
+            call.run();
         } catch (TelegramApiException ex) {
             log.error("Telegram API call failed: method={} exceptionType={}", methodName, ex.getClass().getSimpleName());
             throw new TelegramGatewayException(methodName);
         }
     }
 
-    /** SetWebhook extends PartialBotApiMethod directly, not BotApiMethod, so it needs its own client overload. */
-    private void executeSetWebhook(SetWebhook method) {
-        try {
-            telegramClient.execute(method);
-        } catch (TelegramApiException ex) {
-            log.error("Telegram API call failed: method={} exceptionType={}", "setWebhook", ex.getClass().getSimpleName());
-            throw new TelegramGatewayException("setWebhook");
-        }
+    @FunctionalInterface
+    private interface TelegramCall {
+        void run() throws TelegramApiException;
     }
 
 }
