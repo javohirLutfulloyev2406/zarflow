@@ -23,6 +23,9 @@ record TelegramBotProperties(
             throw new IllegalStateException("zarflow.telegram.webhook-secret must match [A-Za-z0-9_-]{1,256}");
         }
         requireHttps(miniAppUrl, "zarflow.telegram.mini-app-url");
+        // webhookUrl is only meaningful when this instance actually registers the webhook
+        // on startup (TelegramBotStartupRunner); other instances (e.g. local dev with
+        // register-webhook=false) never read it, so it's fine left blank/invalid for them.
         if (registerWebhook) {
             requireHttps(webhookUrl, "zarflow.telegram.webhook-url");
         }

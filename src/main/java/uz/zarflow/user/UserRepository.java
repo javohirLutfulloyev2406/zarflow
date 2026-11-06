@@ -11,8 +11,6 @@ interface UserRepository extends Repository<User, UUID> {
 
     User saveAndFlush(User user);
 
-    Optional<User> findById(UUID id);
-
     Optional<User> findByTelegramId(Long telegramId);
 
     Optional<User> findByIdAndDeletedAtIsNull(UUID id);
