@@ -18,6 +18,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import jakarta.validation.ConstraintViolationException;
 
@@ -82,6 +83,11 @@ class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     ProblemDetail handleUnreadableBody(HttpMessageNotReadableException ex, Locale locale) {
         return validationProblem(List.of(), locale);
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    ProblemDetail handleNoResourceFound(NoResourceFoundException ex, Locale locale) {
+        return problem(HttpStatus.NOT_FOUND, "resource.not-found", null, locale);
     }
 
     @ExceptionHandler(Exception.class)

@@ -1,9 +1,11 @@
 package uz.zarflow.user;
 
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import uz.zarflow.shared.config.ZarflowProperties;
+import uz.zarflow.shared.exception.ConflictException;
 
 @Service
 class UserAccountsService implements UserAccounts {
@@ -26,7 +28,11 @@ class UserAccountsService implements UserAccounts {
 
     private LoginResult updateExisting(User user, TelegramProfile profile) {
         user.updateProfile(profile.firstName(), profile.lastName(), profile.username());
-        userRepository.save(user);
+        try {
+            userRepository.saveAndFlush(user);
+        } catch (ObjectOptimisticLockingFailureException ex) {
+            throw new ConflictException("user.concurrent_update");
+        }
         return new LoginResult(user.getId(), user.getFirstName(), user.getLanguage(), false);
     }
 
