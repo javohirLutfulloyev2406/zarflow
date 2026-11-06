@@ -55,6 +55,13 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void unmappedPathIs404NotAnUnhandled500() throws Exception {
+        mockMvc.perform(get("/probe/does-not-exist"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.errorCode").value("resource.not-found"));
+    }
+
+    @Test
     void conflictShapeIs409() throws Exception {
         mockMvc.perform(get("/probe/conflict"))
                 .andExpect(status().isConflict())
