@@ -11,11 +11,13 @@ import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import uz.zarflow.IntegrationTest;
 import uz.zarflow.TestcontainersConfiguration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@IntegrationTest
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 class AccountRepositoryTests {

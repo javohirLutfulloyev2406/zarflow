@@ -53,3 +53,26 @@ tasks.withType<Test> {
     // single-resource lookup -- the test one wins outright, the main one is never read).
     systemProperty("spring.profiles.active", "test")
 }
+
+// `test` is fast/local (no Docker): everything except classes tagged @IntegrationTest.
+// `integrationTest` runs only those, same source set and classpath, Docker required.
+tasks.named<Test>("test") {
+    useJUnitPlatform {
+        excludeTags("integration")
+    }
+}
+
+val integrationTest = tasks.register<Test>("integrationTest") {
+    description = "Runs Testcontainers-backed integration tests (requires Docker)."
+    group = "verification"
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    useJUnitPlatform {
+        includeTags("integration")
+    }
+    shouldRunAfter(tasks.named("test"))
+}
+
+tasks.named("check") {
+    dependsOn(integrationTest)
+}
