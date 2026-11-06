@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { AppRouter } from "./app/router";
 import { Providers } from "./app/providers";
+import { DebugPanel } from "./debug/DebugPanel";
 import { OutsideTelegramScreen } from "./components/OutsideTelegramScreen";
 import { useAuth } from "./auth/AuthProvider";
 import { useDictionary } from "./i18n/dictionary";
@@ -55,7 +56,12 @@ function AppShell() {
     return <GenericErrorScreen detail={auth.errorDetail} />;
   }
 
-  return <AppRouter />;
+  return (
+    <>
+      <AppRouter />
+      <DebugPanel />
+    </>
+  );
 }
 
 function GenericErrorScreen({ detail }: { detail?: string | null }) {
