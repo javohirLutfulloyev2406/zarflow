@@ -1,5 +1,6 @@
 package uz.zarflow.telegram;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -11,7 +12,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TelegramBotStartupRunnerTest {
 
     private final TelegramBotProperties properties = new TelegramBotProperties(
-            "token", "secret123", "https://example.test", "https://example.test/app", true);
+            "token", "secret123", "https://example.test", "https://example.test/app", true,
+            Duration.ofSeconds(5), Duration.ofSeconds(10));
 
     @Test
     void callsAllFourSetupStepsWithExpectedArgs() {
