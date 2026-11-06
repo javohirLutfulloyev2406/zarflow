@@ -53,7 +53,7 @@ function AppShell() {
   }
 
   if (auth.status === "error") {
-    return <GenericErrorScreen detail={auth.errorDetail} />;
+    return <GenericErrorScreen detail={auth.errorDetail} onRetry={auth.retry} />;
   }
 
   return (
@@ -64,11 +64,20 @@ function AppShell() {
   );
 }
 
-function GenericErrorScreen({ detail }: { detail?: string | null }) {
+function GenericErrorScreen({ detail, onRetry }: { detail?: string | null; onRetry?: () => void }) {
   const dictionary = useDictionary();
   return (
-    <div className="flex h-full items-center justify-center bg-navy-900 px-6 text-center text-ivory-50">
-      {detail ?? dictionary.error.generic}
+    <div className="flex h-full flex-col items-center justify-center gap-4 bg-navy-900 px-6 text-center text-ivory-50">
+      <p>{detail ?? dictionary.error.generic}</p>
+      {onRetry && (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="rounded-full bg-gold-400 px-6 py-2 font-semibold text-navy-900"
+        >
+          {dictionary.error.retry}
+        </button>
+      )}
     </div>
   );
 }

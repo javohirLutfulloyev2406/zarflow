@@ -26,12 +26,10 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   let response = await rawFetch(path, init, token);
 
   if (response.status === 401) {
-    let freshToken: string;
-    try {
-      freshToken = await reauthenticate();
-    } catch {
-      throw new ApiError(await parseProblemDetail(response), response.status);
-    }
+    // Re-authentication itself can fail for a different reason than the
+    // original 401 (offline, stale initData) -- propagate that real error
+    // instead of masking it behind the stale original response.
+    const freshToken = await reauthenticate();
     response = await rawFetch(path, init, freshToken);
   }
 

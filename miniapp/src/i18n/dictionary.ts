@@ -38,6 +38,7 @@ export interface Dictionary {
   };
   error: {
     generic: string;
+    retry: string;
   };
 }
 
@@ -78,6 +79,7 @@ const uz: Dictionary = {
   },
   error: {
     generic: "Kutilmagan xatolik yuz berdi. Ilovani qayta ochib ko'ring.",
+    retry: "Qayta urinish",
   },
 };
 
@@ -118,6 +120,7 @@ const ru: Dictionary = {
   },
   error: {
     generic: "Произошла непредвиденная ошибка. Откройте приложение ещё раз.",
+    retry: "Повторить попытку",
   },
 };
 
