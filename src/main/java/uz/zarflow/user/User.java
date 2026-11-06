@@ -12,6 +12,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 @Entity
 @Table(name = "users")
@@ -44,6 +45,11 @@ class User {
 
     private Instant deletedAt;
 
+    private Instant onboardingCompletedAt;
+
+    @Version
+    private Long version;
+
     protected User() {
     }
 
@@ -62,6 +68,12 @@ class User {
         this.firstName = firstName;
         this.lastName = lastName;
         this.username = username;
+    }
+
+    void updateSettings(String language, String timezone, BigDecimal expectedMonthlyIncome) {
+        this.language = language;
+        this.timezone = timezone;
+        this.expectedMonthlyIncome = expectedMonthlyIncome;
     }
 
     UUID getId() {
@@ -106,6 +118,14 @@ class User {
 
     Instant getDeletedAt() {
         return deletedAt;
+    }
+
+    Instant getOnboardingCompletedAt() {
+        return onboardingCompletedAt;
+    }
+
+    Long getVersion() {
+        return version;
     }
 
 }

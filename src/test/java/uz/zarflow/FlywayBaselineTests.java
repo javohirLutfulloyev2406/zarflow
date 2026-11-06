@@ -27,10 +27,10 @@ class FlywayBaselineTests {
     @Test
     void flywayAppliedAllCoreSchemaMigrations() {
         Integer appliedSuccessfully = jdbcTemplate.queryForObject(
-                "select count(*) from flyway_schema_history where version in ('1', '2', '3', '4', '5') and success = true",
+                "select count(*) from flyway_schema_history where version in ('1', '2', '3', '4', '5', '6') and success = true",
                 Integer.class);
 
-        assertThat(appliedSuccessfully).isEqualTo(5);
+        assertThat(appliedSuccessfully).isEqualTo(6);
     }
 
 }

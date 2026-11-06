@@ -9,8 +9,12 @@ interface UserRepository extends Repository<User, UUID> {
 
     User save(User user);
 
+    User saveAndFlush(User user);
+
     Optional<User> findById(UUID id);
 
     Optional<User> findByTelegramId(Long telegramId);
+
+    Optional<User> findByIdAndDeletedAtIsNull(UUID id);
 
 }
