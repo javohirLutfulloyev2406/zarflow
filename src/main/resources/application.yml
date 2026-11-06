@@ -37,6 +37,12 @@ zarflow:
     secret: ${ZARFLOW_JWT_SECRET}
   cors:
     allowed-origins: ${ZARFLOW_CORS_ALLOWED_ORIGINS:}
+  telegram:
+    bot-token: ${TELEGRAM_BOT_TOKEN}
+    webhook-secret: ${TELEGRAM_WEBHOOK_SECRET}
+    webhook-url: ${TELEGRAM_WEBHOOK_URL:}
+    mini-app-url: ${ZARFLOW_MINI_APP_URL}
+    register-webhook: ${ZARFLOW_TELEGRAM_REGISTER_WEBHOOK:false}
 
 ---
 spring:

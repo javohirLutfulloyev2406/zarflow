@@ -5,3 +5,9 @@ zarflow:
     secret: zarflow-test-jwt-signing-secret-do-not-use
   cors:
     allowed-origins: http://localhost:3000
+  telegram:
+    bot-token: test-bot-token-fixture
+    webhook-secret: test-webhook-secret-fixture
+    webhook-url: https://example.test/telegram/webhook
+    mini-app-url: https://example.test/miniapp
+    register-webhook: false
