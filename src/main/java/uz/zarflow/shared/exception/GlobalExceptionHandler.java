@@ -9,6 +9,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.context.MessageSource;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -19,7 +21,15 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import jakarta.validation.ConstraintViolationException;
 
+/**
+ * @Order(HIGHEST_PRECEDENCE): with spring.mvc.problemdetails.enabled=true, Spring's
+ * own internal ProblemDetail handling also declares handlers for
+ * MethodArgumentNotValidException/HttpMessageNotReadableException. Without an
+ * explicit order, that internal advice can win the tie for those two specific
+ * exception types instead of ours.
+ */
 @RestControllerAdvice
+@Order(Ordered.HIGHEST_PRECEDENCE)
 class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
@@ -34,6 +44,11 @@ class GlobalExceptionHandler {
     @ExceptionHandler(NotFoundException.class)
     ProblemDetail handleNotFound(NotFoundException ex, Locale locale) {
         return problem(HttpStatus.NOT_FOUND, ex.getErrorCode(), ex.getArgs(), locale);
+    }
+
+    @ExceptionHandler(UnauthorizedException.class)
+    ProblemDetail handleUnauthorized(UnauthorizedException ex, Locale locale) {
+        return problem(HttpStatus.UNAUTHORIZED, ex.getErrorCode(), ex.getArgs(), locale);
     }
 
     @ExceptionHandler(ConflictException.class)

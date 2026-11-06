@@ -31,6 +31,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
     implementation("org.springframework.modulith:spring-modulith-starter-core")
     implementation("org.flywaydb:flyway-database-postgresql")
     runtimeOnly("org.postgresql:postgresql")
@@ -45,4 +47,8 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    // Activated here, not via a src/test/resources/application.yml, which would shadow
+    // src/main/resources/application.yml on the test classpath (same resource path,
+    // single-resource lookup -- the test one wins outright, the main one is never read).
+    systemProperty("spring.profiles.active", "test")
 }

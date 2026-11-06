@@ -1,0 +1,7 @@
+zarflow:
+  auth:
+    bot-token: test-bot-token-fixture
+  jwt:
+    secret: zarflow-test-jwt-signing-secret-do-not-use
+  cors:
+    allowed-origins: http://localhost:3000

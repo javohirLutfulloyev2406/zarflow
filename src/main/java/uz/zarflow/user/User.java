@@ -58,6 +58,12 @@ class User {
         this.expectedMonthlyIncome = expectedMonthlyIncome;
     }
 
+    void updateProfile(String firstName, String lastName, String username) {
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.username = username;
+    }
+
     UUID getId() {
         return id;
     }
