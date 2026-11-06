@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 
+import { AppRouter } from "./app/router";
+import { Providers } from "./app/providers";
 import { OutsideTelegramScreen } from "./components/OutsideTelegramScreen";
-import { AuthProvider, useAuth } from "./auth/AuthProvider";
+import { useAuth } from "./auth/AuthProvider";
+import { useDictionary } from "./i18n/dictionary";
+import { Splash } from "./screens/Splash";
 import { bootstrapTelegram, isRunningInTelegram } from "./telegram/sdk";
 import { useTelegramTheme } from "./telegram/theme";
 
@@ -29,13 +33,13 @@ export function App() {
   }
 
   if (status === "checking") {
-    return <LoadingPlaceholder />;
+    return <Splash />;
   }
 
   return (
-    <AuthProvider>
+    <Providers>
       <AppShell />
-    </AuthProvider>
+    </Providers>
   );
 }
 
@@ -44,32 +48,21 @@ function AppShell() {
   const auth = useAuth();
 
   if (auth.status === "loading") {
-    return <LoadingPlaceholder />;
+    return <Splash />;
   }
 
   if (auth.status === "error") {
     return <GenericErrorScreen detail={auth.errorDetail} />;
   }
 
-  return (
-    <div className="flex h-full items-center justify-center font-heading text-xl text-gold-400">
-      Xayrli kun, {auth.user?.firstName}
-    </div>
-  );
-}
-
-function LoadingPlaceholder() {
-  return (
-    <div className="flex h-full items-center justify-center font-heading text-xl text-gold-400">
-      ZarFlow
-    </div>
-  );
+  return <AppRouter />;
 }
 
 function GenericErrorScreen({ detail }: { detail?: string | null }) {
+  const dictionary = useDictionary();
   return (
     <div className="flex h-full items-center justify-center bg-navy-900 px-6 text-center text-ivory-50">
-      {detail ?? "Kutilmagan xatolik yuz berdi. Ilovani qayta ochib ko'ring."}
+      {detail ?? dictionary.error.generic}
     </div>
   );
 }

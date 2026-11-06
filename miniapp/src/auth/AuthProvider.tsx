@@ -10,7 +10,8 @@ import { useLaunchParams, useRawInitData } from "@telegram-apps/sdk-react";
 
 import { login } from "../api/auth";
 import { ApiError } from "../api/problemDetail";
-import type { Language, LoginResponseUser } from "../api/types";
+import type { LoginResponseUser } from "../api/types";
+import { defaultLanguageFor } from "../i18n/defaultLanguage";
 import { setAuthState } from "./store";
 
 type AuthStatus = "loading" | "ready" | "error";
@@ -26,11 +27,6 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   errorDetail: null,
 });
-
-/** Telegram's own language_code -> uz|ru rule, matching the backend's defaultLanguageFor. */
-function defaultLanguageFor(languageCode: string | undefined): Language {
-  return languageCode?.startsWith("ru") ? "ru" : "uz";
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const rawInitData = useRawInitData();
