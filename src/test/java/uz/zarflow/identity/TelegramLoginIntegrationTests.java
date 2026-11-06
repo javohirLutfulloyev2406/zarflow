@@ -18,10 +18,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+import uz.zarflow.IntegrationTest;
 import uz.zarflow.TestcontainersConfiguration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@IntegrationTest
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class TelegramLoginIntegrationTests {

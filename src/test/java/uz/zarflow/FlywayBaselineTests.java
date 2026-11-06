@@ -8,6 +8,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@IntegrationTest
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 class FlywayBaselineTests {

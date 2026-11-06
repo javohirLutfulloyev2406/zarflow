@@ -10,10 +10,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import uz.zarflow.IntegrationTest;
 import uz.zarflow.TestcontainersConfiguration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@IntegrationTest
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 class CategorySeedTests {

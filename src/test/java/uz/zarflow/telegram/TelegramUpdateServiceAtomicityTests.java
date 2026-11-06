@@ -15,6 +15,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.telegram.telegrambots.meta.api.objects.Update;
 
+import uz.zarflow.IntegrationTest;
 import uz.zarflow.TestcontainersConfiguration;
 import uz.zarflow.user.UserAccounts;
 
@@ -26,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * of registerOrUpdate: if the latter failed, the update_id was permanently marked
  * "processed" despite never actually being handled, with no way to reprocess it.
  */
+@IntegrationTest
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 class TelegramUpdateServiceAtomicityTests {
