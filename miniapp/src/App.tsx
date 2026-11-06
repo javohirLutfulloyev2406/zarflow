@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 
+import { OutsideTelegramScreen } from "./components/OutsideTelegramScreen";
+import { AuthProvider, useAuth } from "./auth/AuthProvider";
 import { bootstrapTelegram, isRunningInTelegram } from "./telegram/sdk";
 import { useTelegramTheme } from "./telegram/theme";
-import { OutsideTelegramScreen } from "./components/OutsideTelegramScreen";
 
 type BootStatus = "checking" | "ready" | "error";
 
@@ -24,30 +25,51 @@ export function App() {
   }
 
   if (status === "error") {
-    return (
-      <div className="flex h-full items-center justify-center bg-navy-900 px-6 text-center text-ivory-50">
-        Kutilmagan xatolik yuz berdi. Ilovani qayta ochib ko'ring.
-      </div>
-    );
+    return <GenericErrorScreen />;
   }
 
-  return <AppShell loading={status === "checking"} />;
+  if (status === "checking") {
+    return <LoadingPlaceholder />;
+  }
+
+  return (
+    <AuthProvider>
+      <AppShell />
+    </AuthProvider>
+  );
 }
 
-function AppShell({ loading }: { loading: boolean }) {
+function AppShell() {
   useTelegramTheme();
+  const auth = useAuth();
 
-  if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center font-heading text-xl text-gold-400">
-        ZarFlow
-      </div>
-    );
+  if (auth.status === "loading") {
+    return <LoadingPlaceholder />;
+  }
+
+  if (auth.status === "error") {
+    return <GenericErrorScreen detail={auth.errorDetail} />;
   }
 
   return (
     <div className="flex h-full items-center justify-center font-heading text-xl text-gold-400">
+      Xayrli kun, {auth.user?.firstName}
+    </div>
+  );
+}
+
+function LoadingPlaceholder() {
+  return (
+    <div className="flex h-full items-center justify-center font-heading text-xl text-gold-400">
       ZarFlow
+    </div>
+  );
+}
+
+function GenericErrorScreen({ detail }: { detail?: string | null }) {
+  return (
+    <div className="flex h-full items-center justify-center bg-navy-900 px-6 text-center text-ivory-50">
+      {detail ?? "Kutilmagan xatolik yuz berdi. Ilovani qayta ochib ko'ring."}
     </div>
   );
 }
