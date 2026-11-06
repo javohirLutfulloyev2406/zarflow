@@ -48,6 +48,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/telegram").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/telegram/webhook").permitAll()
                         .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
                         .requestMatchers(openApiPermittedPaths.toArray(String[]::new)).permitAll()
                         .anyRequest().authenticated())
