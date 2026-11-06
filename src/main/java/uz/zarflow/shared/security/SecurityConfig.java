@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -37,7 +38,8 @@ public class SecurityConfig {
             JwtDecoder jwtDecoder,
             AuthenticationEntryPoint authenticationEntryPoint,
             AccessDeniedHandler accessDeniedHandler,
-            CorsConfigurationSource corsConfigurationSource) throws Exception {
+            CorsConfigurationSource corsConfigurationSource,
+            List<String> openApiPermittedPaths) throws Exception {
         http
                 .csrf(CsrfConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
@@ -47,6 +49,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/telegram").permitAll()
                         .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
+                        .requestMatchers(openApiPermittedPaths.toArray(String[]::new)).permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(authenticationEntryPoint)
@@ -55,6 +58,18 @@ public class SecurityConfig {
                         .jwt(jwt -> jwt.decoder(jwtDecoder))
                         .authenticationEntryPoint(authenticationEntryPoint));
         return http.build();
+    }
+
+    @Bean
+    @Profile("local")
+    List<String> openApiPermittedPaths() {
+        return List.of("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html");
+    }
+
+    @Bean
+    @Profile("!local")
+    List<String> openApiPermittedPathsDisabled() {
+        return List.of();
     }
 
     @Bean

@@ -19,6 +19,12 @@ management:
       exposure:
         include: health,info
 
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
 logging:
   pattern:
     level: "%5p [%X{requestId:-}]"
@@ -41,3 +47,9 @@ spring:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${POSTGRES_DB:zarflow}
     username: ${POSTGRES_USER:zarflow}
     password: ${POSTGRES_PASSWORD:zarflow}
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
