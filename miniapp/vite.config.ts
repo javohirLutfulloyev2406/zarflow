@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => {
     server: {
       proxy: {
         "/api": "http://localhost:8080",
+        "/telegram": "http://localhost:8080",
       },
       allowedHosts: [env.VITE_DEV_ALLOWED_HOST].filter(
         (host): host is string => Boolean(host),
