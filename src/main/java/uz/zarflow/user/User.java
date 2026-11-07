@@ -76,6 +76,11 @@ class User {
         this.expectedMonthlyIncome = expectedMonthlyIncome;
     }
 
+    void completeOnboarding(BigDecimal expectedMonthlyIncome, Instant at) {
+        this.expectedMonthlyIncome = expectedMonthlyIncome;
+        this.onboardingCompletedAt = at;
+    }
+
     UUID getId() {
         return id;
     }

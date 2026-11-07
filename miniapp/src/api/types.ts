@@ -50,3 +50,145 @@ export interface UpdateSettingsRequest {
   timezone: string;
   expectedMonthlyIncome: string | null;
 }
+
+/** Mirrors UserController.OnboardingRequest. */
+export interface OnboardingRequest {
+  accountName: string;
+  accountType: AccountType;
+  initialBalance: string;
+  expectedMonthlyIncome: string | null;
+}
+
+export type AccountType = "CASH" | "BANK_CARD" | "BANK_ACCOUNT" | "SAVINGS" | "OTHER";
+
+/** Mirrors AccountController.AccountResponse. */
+export interface Account {
+  id: string;
+  name: string;
+  type: AccountType;
+  currency: "UZS";
+  initialBalance: string;
+  color: string | null;
+  isDefault: boolean;
+  balance: string;
+}
+
+export interface CreateAccountRequest {
+  name: string;
+  type: AccountType;
+  initialBalance: string;
+  color?: string | null;
+}
+
+export interface UpdateAccountRequest {
+  name: string;
+  type: AccountType;
+  color?: string | null;
+}
+
+export type TransactionType = "INCOME" | "EXPENSE" | "TRANSFER";
+export type Necessity = "ESSENTIAL" | "DISCRETIONARY";
+
+/** Mirrors CategoryController.CategoryResponse. */
+export interface Category {
+  id: string;
+  code: string | null;
+  nameUz: string;
+  nameRu: string;
+  type: "INCOME" | "EXPENSE";
+  necessity: Necessity | null;
+  icon: string;
+  color: string;
+}
+
+/** Mirrors TransactionController.TransactionResponse. */
+export interface Transaction {
+  id: string;
+  accountId: string;
+  categoryId: string | null;
+  type: TransactionType;
+  amount: string;
+  currency: "UZS";
+  necessity: Necessity | null;
+  transactionDate: string;
+  description: string | null;
+  transferGroupId: string | null;
+}
+
+export interface CreateTransactionRequest {
+  accountId: string;
+  categoryId: string;
+  type: "INCOME" | "EXPENSE";
+  amount: string;
+  necessity?: Necessity | null;
+  transactionDate?: string | null;
+  description?: string | null;
+}
+
+export interface UpdateTransactionRequest {
+  accountId: string;
+  categoryId: string;
+  amount: string;
+  necessity?: Necessity | null;
+  transactionDate?: string | null;
+  description?: string | null;
+}
+
+export interface TransferRequest {
+  fromAccountId: string;
+  toAccountId: string;
+  amount: string;
+  transactionDate?: string | null;
+  description?: string | null;
+}
+
+export interface TransferResponse {
+  transferGroupId: string;
+  fromLeg: Transaction;
+  toLeg: Transaction;
+}
+
+export interface AdjustRequest {
+  actualBalance: string;
+  description?: string | null;
+}
+
+export interface TransactionsPage {
+  items: Transaction[];
+  totalElements: number;
+  page: number;
+  size: number;
+}
+
+export interface TransactionsSearchParams {
+  from?: string;
+  to?: string;
+  type?: TransactionType;
+  categoryId?: string;
+  accountId?: string;
+  q?: string;
+  page?: number;
+  size?: number;
+}
+
+export interface ExpenseLine {
+  id: string;
+  accountId: string;
+  categoryId: string | null;
+  amount: string;
+  description: string | null;
+  transactionDate: string;
+}
+
+export interface AccountBalance {
+  accountId: string;
+  accountName: string;
+  balance: string;
+}
+
+/** Mirrors SummaryController.TodayAndMonthResponse. */
+export interface TodayAndMonthSummary {
+  today: { expenses: ExpenseLine[]; total: string };
+  month: { income: string; expense: string; net: string };
+  balances: AccountBalance[];
+}

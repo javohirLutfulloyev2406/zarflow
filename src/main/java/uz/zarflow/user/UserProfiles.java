@@ -6,6 +6,7 @@ import java.time.ZoneId;
 import java.util.Optional;
 import java.util.UUID;
 
+import uz.zarflow.account.AccountType;
 import uz.zarflow.shared.common.Money;
 
 /**
@@ -17,6 +18,8 @@ public interface UserProfiles {
     UserProfile getProfile(UUID userId);
 
     UserProfile updateSettings(UUID userId, SettingsUpdate update);
+
+    UserProfile completeOnboarding(UUID userId, OnboardingInput input);
 
     ZoneId zoneOf(UUID userId);
 
@@ -35,6 +38,10 @@ public interface UserProfiles {
     }
 
     record SettingsUpdate(String language, String timezone, BigDecimal expectedMonthlyIncome) {
+    }
+
+    record OnboardingInput(
+            String accountName, AccountType accountType, BigDecimal initialBalance, BigDecimal expectedMonthlyIncome) {
     }
 
     record UserSummary(UUID id, String language, ZoneId timezone, Money expectedMonthlyIncome) {

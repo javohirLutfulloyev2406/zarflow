@@ -64,6 +64,20 @@ class Account {
         this.isDefault = isDefault;
     }
 
+    void update(String name, AccountType type, String color) {
+        this.name = name;
+        this.type = type;
+        this.color = color;
+    }
+
+    void unmarkDefault() {
+        this.isDefault = false;
+    }
+
+    void archive(Instant at) {
+        this.archivedAt = at;
+    }
+
     UUID getId() {
         return id;
     }

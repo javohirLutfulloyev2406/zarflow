@@ -1,6 +1,6 @@
 package uz.zarflow.category;
 
-enum Necessity {
+public enum Necessity {
     ESSENTIAL,
     DISCRETIONARY
 }
