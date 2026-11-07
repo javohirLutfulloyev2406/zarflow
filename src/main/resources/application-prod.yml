@@ -1,0 +1,33 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/zarflow
+    username: zarflow
+    password: ${POSTGRES_PASSWORD}
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+
+server:
+  tomcat:
+    threads:
+      max: 50
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+logging:
+  level:
+    root: INFO
+
+zarflow:
+  cors:
+    allowed-origins: https://${ZARFLOW_DOMAIN}
