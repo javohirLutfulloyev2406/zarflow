@@ -199,7 +199,7 @@ class TelegramWebhookIntegrationTests {
     }
 
     @Test
-    void unknownTextRepliesWithFallback() {
+    void quickInputTextBeforeOnboardingPromptsAppButtonInsteadOfSaving() {
         long chatId = uniqueId();
         String body = TelegramUpdateTestSupport.privateMessageUpdate(
                 uniqueId(), chatId, chatId, "Ali", null, null, "uz", "25000 tushlik");
@@ -208,7 +208,7 @@ class TelegramWebhookIntegrationTests {
 
         FakeTelegramGateway.SentMessage sent = lastSentTo(chatId);
         assertThat(sent.text()).isNotBlank();
-        assertThat(sent.replyMarkup()).isNull();
+        assertThat(FakeTelegramGateway.webAppUrlOf(sent)).isEqualTo(miniAppUrl);
     }
 
     private ResponseEntity<String> post(String body) {

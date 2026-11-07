@@ -66,7 +66,7 @@ class TransactionController {
     @DeleteMapping("/api/v1/transactions/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void delete(@PathVariable UUID id) {
-        transactionsService.delete(currentUser.requireUserId(), id);
+        transactionsService.softDelete(currentUser.requireUserId(), id);
     }
 
     @GetMapping("/api/v1/transactions")

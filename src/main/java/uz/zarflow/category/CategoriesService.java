@@ -33,6 +33,14 @@ class CategoriesService implements Categories {
         return new CategoryOwnership(category.getId(), category.getType(), category.getNecessity());
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<CategoryKeywords> keywordsForUser(UUID userId) {
+        return categoryRepository.findVisibleForUser(userId).stream()
+                .map(c -> new CategoryKeywords(c.getId(), c.getNameUz(), c.getNameRu(), c.getType(), List.of(c.getKeywords())))
+                .toList();
+    }
+
     private CategoryView toView(CategoryRepository.CategoryUsageRow row) {
         return new CategoryView(
                 row.getId(),

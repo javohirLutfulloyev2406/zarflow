@@ -15,6 +15,12 @@ public interface Categories {
     /** 404s (never 403) when the category doesn't exist or isn't visible to this user. */
     CategoryOwnership requireUsable(UUID userId, UUID categoryId);
 
+    /** System categories plus this user's own, with their matching keywords — for the bot's quick-input parser. */
+    List<CategoryKeywords> keywordsForUser(UUID userId);
+
+    record CategoryKeywords(UUID id, String nameUz, String nameRu, CategoryType type, List<String> keywords) {
+    }
+
     record CategoryView(
             UUID id,
             String code,

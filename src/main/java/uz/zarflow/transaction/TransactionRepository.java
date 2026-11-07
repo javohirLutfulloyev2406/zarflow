@@ -29,6 +29,20 @@ interface TransactionRepository extends Repository<Transaction, UUID>, JpaSpecif
 
     Optional<Transaction> findByUserIdAndIdempotencyKey(UUID userId, String idempotencyKey);
 
+    Optional<Transaction> findTopByUserIdAndDeletedAtIsNullAndCreatedAtAfterOrderByCreatedAtDesc(
+            UUID userId, Instant createdAfter);
+
+    List<Transaction> findByTransferGroupIdAndDeletedAtIsNull(UUID transferGroupId);
+
+    @Query("""
+            select t from Transaction t
+            where t.userId = :userId and t.deletedAt is null and t.type in ('INCOME', 'EXPENSE')
+              and t.transactionDate >= :from and t.transactionDate < :to
+            order by t.transactionDate desc
+            """)
+    List<Transaction> findIncomeAndExpenseInRange(
+            @Param("userId") UUID userId, @Param("from") Instant from, @Param("to") Instant to);
+
     @Query("""
             select t from Transaction t
             where t.userId = :userId and t.deletedAt is null and t.type = 'EXPENSE'
