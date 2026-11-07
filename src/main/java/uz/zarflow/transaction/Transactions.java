@@ -2,6 +2,8 @@ package uz.zarflow.transaction;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
@@ -37,6 +39,18 @@ public interface Transactions {
     /** Soft-deletes and returns the user's most recent non-deleted entry from the last 24h, if any — for /undo. */
     Optional<BotTransaction> undoLast(UUID userId);
 
+    /** Income/expense/essential-discretionary totals and per-category expense breakdown for an arbitrary local date range. */
+    PeriodAnalytics analyticsForRange(UUID userId, ZoneId zone, LocalDate from, LocalDate toInclusive);
+
+    /** One entry per local day in the month that has at least one income/expense transaction — for the calendar heatmap. */
+    List<DayTotal> dailyTotalsForMonth(UUID userId, ZoneId zone, YearMonth month);
+
+    /** A single local day's income/expense transactions and totals — for the day drill-down screen. */
+    DayDetail dayDetail(UUID userId, ZoneId zone, LocalDate date);
+
+    /** A single local day's totals plus its single largest expense category — for the daily report. */
+    DailyDigest dailyDigest(UUID userId, ZoneId zone, LocalDate date);
+
     record TodayAndMonth(
             List<ExpenseLine> todayExpenses,
             BigDecimal todayTotal,
@@ -57,6 +71,26 @@ public interface Transactions {
     record BotTransaction(
             UUID id, UUID accountId, UUID categoryId, TransactionType type, BigDecimal amount,
             String description, Instant transactionDate) {
+    }
+
+    record PeriodAnalytics(
+            BigDecimal income,
+            BigDecimal expense,
+            BigDecimal essentialExpense,
+            BigDecimal discretionaryExpense,
+            List<CategoryAmount> expenseByCategory) {
+    }
+
+    record CategoryAmount(UUID categoryId, BigDecimal amount) {
+    }
+
+    record DayTotal(LocalDate date, BigDecimal income, BigDecimal expense, int count) {
+    }
+
+    record DayDetail(List<BotTransaction> transactions, BigDecimal income, BigDecimal expense) {
+    }
+
+    record DailyDigest(BigDecimal income, BigDecimal expense, int txCount, UUID topCategoryId, BigDecimal topCategoryAmount) {
     }
 
 }

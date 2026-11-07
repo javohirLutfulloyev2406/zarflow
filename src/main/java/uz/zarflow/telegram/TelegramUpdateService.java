@@ -1,9 +1,12 @@
 package uz.zarflow.telegram;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -33,8 +36,10 @@ import uz.zarflow.account.AccountType;
 import uz.zarflow.account.Accounts;
 import uz.zarflow.category.CategoryType;
 import uz.zarflow.category.Categories;
+import uz.zarflow.shared.common.DateRange;
 import uz.zarflow.shared.common.Money;
 import uz.zarflow.shared.common.MoneyFormatter;
+import uz.zarflow.shared.common.Percentages;
 import uz.zarflow.transaction.TransactionType;
 import uz.zarflow.transaction.Transactions;
 import uz.zarflow.user.UserAccounts;
@@ -60,6 +65,7 @@ class TelegramUpdateService {
     private final MoneyFormatter moneyFormatter;
     private final TelegramBotProperties properties;
     private final TransactionTemplate transactionTemplate;
+    private final Clock clock;
     private final QuickInputParser parser = new QuickInputParser();
 
     TelegramUpdateService(
@@ -75,7 +81,8 @@ class TelegramUpdateService {
             MessageSource messageSource,
             MoneyFormatter moneyFormatter,
             TelegramBotProperties properties,
-            PlatformTransactionManager transactionManager) {
+            PlatformTransactionManager transactionManager,
+            Clock clock) {
         this.jdbcTemplate = jdbcTemplate;
         this.userAccounts = userAccounts;
         this.userProfiles = userProfiles;
@@ -89,6 +96,7 @@ class TelegramUpdateService {
         this.moneyFormatter = moneyFormatter;
         this.properties = properties;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.clock = clock;
     }
 
     void handle(Update update) {
@@ -138,6 +146,8 @@ class TelegramUpdateService {
             case "/today" -> runOnboarded(chatId, userId, locale, () -> handleToday(chatId, userId, locale));
             case "/balance" -> runOnboarded(chatId, userId, locale, () -> handleBalance(chatId, userId, locale));
             case "/undo" -> runOnboarded(chatId, userId, locale, () -> handleUndo(chatId, userId, locale));
+            case "/week" -> runOnboarded(chatId, userId, locale, () -> handleWeek(chatId, userId, locale));
+            case "/month" -> runOnboarded(chatId, userId, locale, () -> handleMonth(chatId, userId, locale));
             default -> runOnboarded(chatId, userId, locale,
                     () -> handleQuickInput(message.getText(), update.getUpdateId(), chatId, userId, locale));
         }
@@ -388,11 +398,17 @@ class TelegramUpdateService {
                 case 'O' -> handlePage(userId, locale, chatId, messageId, payload, true);
                 case 'N' -> handlePick(userId, locale, chatId, messageId, payload, false);
                 case 'M' -> handlePage(userId, locale, chatId, messageId, payload, false);
+                case 'Z' -> handleDailyReportAck(chatId, messageId, locale);
                 default -> { }
             }
         } catch (IllegalArgumentException ex) {
             log.warn("Malformed callback data ignored: {}", data);
         }
+    }
+
+    private void handleDailyReportAck(long chatId, int messageId, Locale locale) {
+        String text = messageSource.getMessage("bot.daily-report-ack", null, locale);
+        telegramGateway.editMessageText(chatId, messageId, text, null);
     }
 
     private void handleCancel(UUID userId, Locale locale, long chatId, int messageId, UUID transactionId) {
@@ -562,6 +578,54 @@ class TelegramUpdateService {
         String amountText = moneyFormatter.format(Money.of(t.amount().abs()), locale);
         String text = messageSource.getMessage("bot.undo-removed", new Object[]{amountText, categoryLabel}, locale);
         sendSafely(chatId, text, null, "bot.undo-removed");
+    }
+
+    private void handleWeek(long chatId, UUID userId, Locale locale) {
+        ZoneId zone = userProfiles.zoneOf(userId);
+        DateRange current = DateRange.thisWeek(clock, zone);
+        DateRange previous = DateRange.custom(current.from().minusDays(7), current.toInclusive().minusDays(7));
+        sendPeriodReport(chatId, userId, locale, "bot.week-header", zone, current, previous);
+    }
+
+    private void handleMonth(long chatId, UUID userId, Locale locale) {
+        ZoneId zone = userProfiles.zoneOf(userId);
+        DateRange current = DateRange.thisMonth(clock, zone);
+        DateRange previous = DateRange.ofMonth(YearMonth.from(current.from()).minusMonths(1));
+        sendPeriodReport(chatId, userId, locale, "bot.month-header", zone, current, previous);
+    }
+
+    private void sendPeriodReport(
+            long chatId, UUID userId, Locale locale, String headerKey, ZoneId zone, DateRange current, DateRange previous) {
+        Transactions.PeriodAnalytics currentPeriod =
+                transactions.analyticsForRange(userId, zone, current.from(), current.toInclusive());
+        Transactions.PeriodAnalytics previousPeriod =
+                transactions.analyticsForRange(userId, zone, previous.from(), previous.toInclusive());
+
+        StringBuilder sb = new StringBuilder();
+        sb.append(messageSource.getMessage(headerKey, null, locale)).append('\n');
+        sb.append(messageSource.getMessage(
+                "bot.period-income", new Object[]{moneyFormatter.format(Money.of(currentPeriod.income()), locale)}, locale))
+                .append('\n');
+        sb.append(messageSource.getMessage(
+                "bot.period-expense", new Object[]{moneyFormatter.format(Money.of(currentPeriod.expense()), locale)}, locale))
+                .append('\n');
+
+        List<Transactions.CategoryAmount> top3 = currentPeriod.expenseByCategory().stream()
+                .sorted(Comparator.comparing(Transactions.CategoryAmount::amount).reversed())
+                .limit(3)
+                .toList();
+        if (!top3.isEmpty()) {
+            sb.append(messageSource.getMessage("bot.period-top-categories", null, locale)).append('\n');
+            for (var categoryAmount : top3) {
+                sb.append(categoryLabel(userId, categoryAmount.categoryId(), locale)).append(": ")
+                        .append(moneyFormatter.format(Money.of(categoryAmount.amount()), locale)).append('\n');
+            }
+        }
+        BigDecimal change = Percentages.changeOf(currentPeriod.expense(), previousPeriod.expense());
+        if (change != null) {
+            sb.append(messageSource.getMessage("bot.period-change", new Object[]{change.toPlainString()}, locale));
+        }
+        sendSafely(chatId, sb.toString().strip(), null, headerKey);
     }
 
     // ---- shared plumbing (unchanged from before this feature) ----

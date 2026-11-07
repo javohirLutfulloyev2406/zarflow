@@ -199,3 +199,70 @@ export interface TodayAndMonthSummary {
 export interface UpdateDisplayNameRequest {
   displayName: string;
 }
+
+/** Mirrors AnalyticsController.CategoryBreakdownResponse. */
+export interface AnalyticsCategoryBreakdown {
+  categoryId: string;
+  name: string;
+  color: string | null;
+  icon: string | null;
+  amount: string;
+  sharePercent: string;
+  changeVsPrevMonthPercent: string | null;
+}
+
+/** Mirrors AnalyticsController.MonthResponse. */
+export interface AnalyticsMonthResponse {
+  income: string;
+  expense: string;
+  net: string;
+  previousMonthExpense: string;
+  expenseChangeVsPrevMonthPercent: string | null;
+  essentialExpense: string;
+  discretionaryExpense: string;
+  dailyAverageExpense: string;
+  categories: AnalyticsCategoryBreakdown[];
+}
+
+/** Mirrors AnalyticsController.DayTotalResponse. */
+export interface AnalyticsCalendarDay {
+  date: string;
+  income: string;
+  expense: string;
+  count: number;
+}
+
+/** Mirrors AnalyticsController.CalendarResponse. */
+export interface AnalyticsCalendarResponse {
+  days: AnalyticsCalendarDay[];
+}
+
+/** Mirrors AnalyticsController.TransactionResponse. */
+export interface AnalyticsDayTransaction {
+  id: string;
+  accountId: string;
+  categoryId: string | null;
+  type: TransactionType;
+  amount: string;
+  description: string | null;
+  transactionDate: string;
+}
+
+/** Mirrors AnalyticsController.DayResponse. */
+export interface AnalyticsDayResponse {
+  transactions: AnalyticsDayTransaction[];
+  income: string;
+  expense: string;
+}
+
+/** Mirrors NotificationSettingsController.SettingsResponse. */
+export interface NotificationSettings {
+  dailyReportEnabled: boolean;
+  dailyReportTime: string;
+}
+
+/** Mirrors NotificationSettingsController.UpdateSettingsRequest. */
+export interface UpdateNotificationSettingsRequest {
+  dailyReportEnabled: boolean;
+  dailyReportTime: string;
+}

@@ -3,6 +3,7 @@ package uz.zarflow.user;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -27,6 +28,9 @@ public interface UserProfiles {
 
     Optional<UserSummary> find(UUID userId);
 
+    /** For schedulers that need to sweep every active user (e.g. the daily report job). */
+    List<UserSummary> findAllActive();
+
     record UserProfile(
             UUID id,
             String firstName,
@@ -47,7 +51,7 @@ public interface UserProfiles {
             String accountName, AccountType accountType, BigDecimal initialBalance, BigDecimal expectedMonthlyIncome) {
     }
 
-    record UserSummary(UUID id, String language, ZoneId timezone, Money expectedMonthlyIncome) {
+    record UserSummary(UUID id, Long telegramId, String language, ZoneId timezone, Money expectedMonthlyIncome) {
     }
 
 }

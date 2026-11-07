@@ -5,8 +5,9 @@ import { EmptyStateCard } from "../components/EmptyStateCard";
 import { SkeletonCard } from "../components/SkeletonCard";
 import { useAuth } from "../auth/AuthProvider";
 import { setAuthState } from "../auth/store";
+import { getNotificationSettings, updateNotificationSettings } from "../api/notifications";
 import { ApiError } from "../api/problemDetail";
-import type { Language, UpdateSettingsRequest, UserProfile } from "../api/types";
+import type { Language, NotificationSettings, UpdateSettingsRequest, UserProfile } from "../api/types";
 import { getMe, updateDisplayName, updateSettings } from "../api/users";
 import { useDictionary } from "../i18n/dictionary";
 import { useBackButton } from "../telegram/useBackButton";
@@ -169,6 +170,74 @@ function ProfileForm({
       >
         {dictionary.profile.save}
       </button>
+
+      <DailyReportField />
+    </div>
+  );
+}
+
+function DailyReportField() {
+  const { data } = useQuery({ queryKey: ["notificationSettings"], queryFn: getNotificationSettings });
+
+  if (!data) {
+    return null;
+  }
+  return <DailyReportForm initial={data} />;
+}
+
+function DailyReportForm({ initial }: { initial: NotificationSettings }) {
+  const dictionary = useDictionary();
+  const [enabled, setEnabled] = useState(initial.dailyReportEnabled);
+  const [time, setTime] = useState(initial.dailyReportTime);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: (body: { dailyReportEnabled: boolean; dailyReportTime: string }) => updateNotificationSettings(body),
+    onSuccess: () => setMessage(dictionary.profile.saved),
+    onError: (err: unknown) => {
+      setMessage(err instanceof ApiError ? (err.problem.detail ?? dictionary.error.generic) : dictionary.error.generic);
+    },
+  });
+
+  function save(nextEnabled: boolean, nextTime: string) {
+    setMessage(null);
+    mutation.mutate({ dailyReportEnabled: nextEnabled, dailyReportTime: nextTime });
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl bg-navy-800 p-4">
+      <p className="text-sm font-medium">{dictionary.notifications.dailyReportTitle}</p>
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-slate-400">{dictionary.notifications.dailyReportEnabledLabel}</span>
+        <button
+          type="button"
+          onClick={() => {
+            const next = !enabled;
+            setEnabled(next);
+            save(next, time);
+          }}
+          className={`rounded-full px-4 py-1 text-xs ${enabled ? "bg-emerald-700 text-ivory-50" : "bg-navy-900 text-slate-400"}`}
+        >
+          {enabled ? "ON" : "OFF"}
+        </button>
+      </div>
+      <div className="flex items-center justify-between">
+        <label className="text-xs text-slate-400" htmlFor="daily-report-time">
+          {dictionary.notifications.dailyReportTimeLabel}
+        </label>
+        <input
+          id="daily-report-time"
+          type="time"
+          value={time}
+          onChange={(event) => {
+            const next = event.target.value;
+            setTime(next);
+            save(enabled, next);
+          }}
+          className="rounded-lg bg-navy-900 px-3 py-1 text-sm text-ivory-50"
+        />
+      </div>
+      {message ? <p className="text-xs text-success-400">{message}</p> : null}
     </div>
   );
 }
