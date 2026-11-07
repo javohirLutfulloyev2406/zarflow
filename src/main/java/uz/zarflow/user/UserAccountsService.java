@@ -33,7 +33,7 @@ class UserAccountsService implements UserAccounts {
         } catch (ObjectOptimisticLockingFailureException ex) {
             throw new ConflictException("user.concurrent_update");
         }
-        return new LoginResult(user.getId(), user.getFirstName(), user.getLanguage(), false);
+        return new LoginResult(user.getId(), user.getFirstName(), user.getDisplayName(), user.getLanguage(), false);
     }
 
     private LoginResult createNew(TelegramProfile profile) {
@@ -47,7 +47,7 @@ class UserAccountsService implements UserAccounts {
                 zarflowProperties.defaultTimezone(),
                 null);
         userRepository.save(user);
-        return new LoginResult(user.getId(), user.getFirstName(), user.getLanguage(), true);
+        return new LoginResult(user.getId(), user.getFirstName(), user.getDisplayName(), user.getLanguage(), true);
     }
 
     private String defaultLanguageFor(String languageCode) {

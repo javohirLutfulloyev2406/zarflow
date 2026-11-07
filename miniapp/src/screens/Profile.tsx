@@ -3,10 +3,11 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { EmptyStateCard } from "../components/EmptyStateCard";
 import { SkeletonCard } from "../components/SkeletonCard";
+import { useAuth } from "../auth/AuthProvider";
 import { setAuthState } from "../auth/store";
 import { ApiError } from "../api/problemDetail";
 import type { Language, UpdateSettingsRequest, UserProfile } from "../api/types";
-import { getMe, updateSettings } from "../api/users";
+import { getMe, updateDisplayName, updateSettings } from "../api/users";
 import { useDictionary } from "../i18n/dictionary";
 import { useBackButton } from "../telegram/useBackButton";
 import { useTimezoneSearch } from "./useTimezoneSearch";
@@ -81,6 +82,8 @@ function ProfileForm({
 
   return (
     <div className="flex flex-col gap-4">
+      <DisplayNameField initialValue={profile.displayName ?? ""} />
+
       <div>
         <p className="text-xs text-slate-400">{dictionary.profile.firstName}</p>
         <p className="text-sm">{profile.firstName}</p>
@@ -166,6 +169,57 @@ function ProfileForm({
       >
         {dictionary.profile.save}
       </button>
+    </div>
+  );
+}
+
+function DisplayNameField({ initialValue }: { initialValue: string }) {
+  const dictionary = useDictionary();
+  const { setDisplayName } = useAuth();
+  const [value, setValue] = useState(initialValue);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: (displayName: string) => updateDisplayName({ displayName }),
+    onSuccess: (updated) => {
+      setDisplayName(updated.displayName ?? value.trim());
+      setMessage(dictionary.profile.saved);
+    },
+    onError: (err: unknown) => {
+      setMessage(err instanceof ApiError ? (err.problem.detail ?? dictionary.error.generic) : dictionary.error.generic);
+    },
+  });
+
+  return (
+    <div>
+      <label className="mb-1 block text-xs text-slate-400" htmlFor="display-name">
+        {dictionary.profile.displayName}
+      </label>
+      <div className="flex gap-2">
+        <input
+          id="display-name"
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          placeholder={dictionary.profile.displayNamePlaceholder}
+          maxLength={50}
+          className="w-full rounded-lg bg-navy-800 px-3 py-2 text-sm text-ivory-50"
+        />
+        <button
+          type="button"
+          onClick={() => {
+            setMessage(null);
+            const trimmed = value.trim();
+            if (trimmed) {
+              mutation.mutate(trimmed);
+            }
+          }}
+          disabled={mutation.isPending || value.trim() === ""}
+          className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-ivory-50 disabled:opacity-50"
+        >
+          {dictionary.profile.save}
+        </button>
+      </div>
+      {message ? <p className="mt-1 text-xs text-success-400">{message}</p> : null}
     </div>
   );
 }

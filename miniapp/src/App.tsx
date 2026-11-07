@@ -8,6 +8,7 @@ import { OutsideTelegramScreen } from "./components/OutsideTelegramScreen";
 import { getMe } from "./api/users";
 import { useAuth } from "./auth/AuthProvider";
 import { useDictionary } from "./i18n/dictionary";
+import { NamePrompt } from "./screens/NamePrompt";
 import { Onboarding } from "./screens/Onboarding";
 import { Splash } from "./screens/Splash";
 import { bootstrapTelegram, isRunningInTelegram } from "./telegram/sdk";
@@ -58,6 +59,10 @@ function AppShell() {
 
   if (auth.status === "error") {
     return <GenericErrorScreen detail={auth.errorDetail} onRetry={auth.retry} />;
+  }
+
+  if (!auth.user?.displayName) {
+    return <NamePrompt />;
   }
 
   if (me.isPending) {
