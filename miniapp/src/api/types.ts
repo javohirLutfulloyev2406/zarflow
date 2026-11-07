@@ -19,6 +19,7 @@ export interface ProblemDetail {
 export interface LoginResponseUser {
   id: string;
   firstName: string;
+  displayName: string | null;
   language: Language;
   isNew: boolean;
 }
@@ -37,6 +38,7 @@ export interface UserProfile {
   firstName: string | null;
   lastName: string | null;
   username: string | null;
+  displayName: string | null;
   language: Language;
   timezone: string;
   expectedMonthlyIncome: string | null;
@@ -49,4 +51,9 @@ export interface UpdateSettingsRequest {
   language: Language;
   timezone: string;
   expectedMonthlyIncome: string | null;
+}
+
+/** Mirrors UserController.UpdateDisplayNameRequest. */
+export interface UpdateDisplayNameRequest {
+  displayName: string;
 }

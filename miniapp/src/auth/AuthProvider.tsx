@@ -21,6 +21,7 @@ interface AuthContextValue {
   user: LoginResponseUser | null;
   errorDetail: string | null;
   retry: () => void;
+  setDisplayName: (displayName: string) => void;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -28,12 +29,13 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   errorDetail: null,
   retry: () => {},
+  setDisplayName: () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const rawInitData = useRawInitData();
   const launchParams = useLaunchParams(true);
-  const [state, setState] = useState<Omit<AuthContextValue, "retry">>({
+  const [state, setState] = useState<Omit<AuthContextValue, "retry" | "setDisplayName">>({
     status: "loading",
     user: null,
     errorDetail: null,
@@ -78,7 +80,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRetryNonce((n) => n + 1);
   };
 
-  return <AuthContext.Provider value={{ ...state, retry }}>{children}</AuthContext.Provider>;
+  const setDisplayName = (displayName: string) => {
+    setState((current) =>
+      current.user ? { ...current, user: { ...current.user, displayName } } : current,
+    );
+  };
+
+  return (
+    <AuthContext.Provider value={{ ...state, retry, setDisplayName }}>{children}</AuthContext.Provider>
+  );
 }
 
 export function useAuth(): AuthContextValue {

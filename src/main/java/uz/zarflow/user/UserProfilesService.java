@@ -46,6 +46,19 @@ class UserProfilesService implements UserProfiles {
     }
 
     @Override
+    @Transactional
+    public UserProfile updateDisplayName(UUID userId, String displayName) {
+        User user = requireActiveUser(userId);
+        user.updateDisplayName(displayName.trim());
+        try {
+            userRepository.saveAndFlush(user);
+        } catch (ObjectOptimisticLockingFailureException ex) {
+            throw new ConflictException("user.concurrent_update");
+        }
+        return toProfile(user);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public ZoneId zoneOf(UUID userId) {
         return resolveZone(userRepository.findByIdAndDeletedAtIsNull(userId)
@@ -70,6 +83,7 @@ class UserProfilesService implements UserProfiles {
                 user.getFirstName(),
                 user.getLastName(),
                 user.getUsername(),
+                user.getDisplayName(),
                 user.getLanguage(),
                 user.getTimezone(),
                 user.getExpectedMonthlyIncome(),

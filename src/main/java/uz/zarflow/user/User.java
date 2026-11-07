@@ -31,6 +31,8 @@ class User {
 
     private String username;
 
+    private String displayName;
+
     private String language;
 
     private String timezone;
@@ -76,6 +78,10 @@ class User {
         this.expectedMonthlyIncome = expectedMonthlyIncome;
     }
 
+    void updateDisplayName(String displayName) {
+        this.displayName = displayName;
+    }
+
     UUID getId() {
         return id;
     }
@@ -94,6 +100,10 @@ class User {
 
     String getUsername() {
         return username;
+    }
+
+    String getDisplayName() {
+        return displayName;
     }
 
     String getLanguage() {

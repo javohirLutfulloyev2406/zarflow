@@ -6,6 +6,7 @@ import { DebugPanel } from "./debug/DebugPanel";
 import { OutsideTelegramScreen } from "./components/OutsideTelegramScreen";
 import { useAuth } from "./auth/AuthProvider";
 import { useDictionary } from "./i18n/dictionary";
+import { NamePrompt } from "./screens/NamePrompt";
 import { Splash } from "./screens/Splash";
 import { bootstrapTelegram, isRunningInTelegram } from "./telegram/sdk";
 import { useTelegramTheme } from "./telegram/theme";
@@ -54,6 +55,10 @@ function AppShell() {
 
   if (auth.status === "error") {
     return <GenericErrorScreen detail={auth.errorDetail} onRetry={auth.retry} />;
+  }
+
+  if (!auth.user?.displayName) {
+    return <NamePrompt />;
   }
 
   return (

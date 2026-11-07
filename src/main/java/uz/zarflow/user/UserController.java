@@ -16,6 +16,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 
 import uz.zarflow.shared.security.CurrentUser;
 
@@ -43,12 +44,18 @@ class UserController {
         return toResponse(userProfiles.updateSettings(currentUser.requireUserId(), update));
     }
 
+    @PutMapping("/display-name")
+    UserProfileResponse updateDisplayName(@Valid @RequestBody UpdateDisplayNameRequest request) {
+        return toResponse(userProfiles.updateDisplayName(currentUser.requireUserId(), request.displayName()));
+    }
+
     private UserProfileResponse toResponse(UserProfiles.UserProfile profile) {
         return new UserProfileResponse(
                 profile.id(),
                 profile.firstName(),
                 profile.lastName(),
                 profile.username(),
+                profile.displayName(),
                 profile.language(),
                 profile.timezone(),
                 profile.expectedMonthlyIncome(),
@@ -61,6 +68,7 @@ class UserController {
             String firstName,
             String lastName,
             String username,
+            String displayName,
             String language,
             String timezone,
             @Schema(type = "string", example = "8500000.00") BigDecimal expectedMonthlyIncome,
@@ -73,6 +81,9 @@ class UserController {
             @NotBlank @ValidTimezone String timezone,
             @DecimalMin("0.00") @Digits(integer = 12, fraction = 2)
             @Schema(type = "string", example = "8500000.00") BigDecimal expectedMonthlyIncome) {
+    }
+
+    record UpdateDisplayNameRequest(@NotBlank @Size(max = 50) String displayName) {
     }
 
 }

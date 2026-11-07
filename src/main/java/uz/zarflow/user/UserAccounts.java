@@ -18,7 +18,7 @@ public interface UserAccounts {
             String languageCode) {
     }
 
-    record LoginResult(UUID userId, String firstName, String language, boolean isNew) {
+    record LoginResult(UUID userId, String firstName, String displayName, String language, boolean isNew) {
     }
 
 }
