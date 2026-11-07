@@ -1,5 +1,6 @@
 package uz.zarflow.user;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -14,5 +15,7 @@ interface UserRepository extends Repository<User, UUID> {
     Optional<User> findByTelegramId(Long telegramId);
 
     Optional<User> findByIdAndDeletedAtIsNull(UUID id);
+
+    List<User> findAllByDeletedAtIsNull();
 
 }

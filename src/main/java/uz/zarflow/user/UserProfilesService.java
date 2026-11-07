@@ -5,6 +5,7 @@ import java.time.Clock;
 import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -98,6 +99,12 @@ class UserProfilesService implements UserProfiles {
         return userRepository.findByIdAndDeletedAtIsNull(userId).map(this::toSummary);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<UserSummary> findAllActive() {
+        return userRepository.findAllByDeletedAtIsNull().stream().map(this::toSummary).toList();
+    }
+
     private User requireActiveUser(UUID userId) {
         return userRepository.findByIdAndDeletedAtIsNull(userId)
                 .orElseThrow(() -> new NotFoundException("user.not_found"));
@@ -121,6 +128,7 @@ class UserProfilesService implements UserProfiles {
         BigDecimal income = user.getExpectedMonthlyIncome();
         return new UserSummary(
                 user.getId(),
+                user.getTelegramId(),
                 user.getLanguage(),
                 resolveZone(user.getTimezone()),
                 income == null ? null : Money.of(income));

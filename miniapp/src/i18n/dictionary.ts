@@ -22,8 +22,19 @@ export interface Dictionary {
     plan: string;
   };
   placeholders: {
-    analytics: string;
     plan: string;
+  };
+  analytics: {
+    title: string;
+    incomeLabel: string;
+    expenseLabel: string;
+    netLabel: string;
+    vsLastMonthLabel: string;
+    essentialLabel: string;
+    discretionaryLabel: string;
+    dailyAverageLabel: string;
+    empty: string;
+    calendarWeekdays: string[];
   };
   history: {
     title: string;
@@ -32,6 +43,9 @@ export interface Dictionary {
     yesterday: string;
     deleted: string;
     deleteConfirm: string;
+    clearFilter: string;
+    dayDetailEmpty: string;
+    closeDayDetail: string;
   };
   accountTypes: Record<AccountType, string>;
   onboarding: {
@@ -84,6 +98,11 @@ export interface Dictionary {
     placeholder: string;
     save: string;
   };
+  notifications: {
+    dailyReportTitle: string;
+    dailyReportEnabledLabel: string;
+    dailyReportTimeLabel: string;
+  };
   error: {
     generic: string;
     retry: string;
@@ -111,8 +130,19 @@ const uz: Dictionary = {
     plan: "Reja",
   },
   placeholders: {
-    analytics: "Tahlil va hisobotlar tez orada shu yerda ko'rinadi.",
     plan: "Byudjet va rejalashtirish tez orada shu yerda ko'rinadi.",
+  },
+  analytics: {
+    title: "Analitika",
+    incomeLabel: "Daromad",
+    expenseLabel: "Xarajat",
+    netLabel: "Sof",
+    vsLastMonthLabel: "O'tgan oyga nisbatan",
+    essentialLabel: "Zarur",
+    discretionaryLabel: "Ixtiyoriy",
+    dailyAverageLabel: "Kuniga o'rtacha xarajat",
+    empty: "Bu oyda hali ma'lumot yo'q.",
+    calendarWeekdays: ["Du", "Se", "Cho", "Pa", "Ju", "Sh", "Ya"],
   },
   history: {
     title: "Tarix",
@@ -121,6 +151,9 @@ const uz: Dictionary = {
     yesterday: "Kecha",
     deleted: "O'chirildi",
     deleteConfirm: "O'chirishni tasdiqlaysizmi?",
+    clearFilter: "Filtrni tozalash",
+    dayDetailEmpty: "Bu kunda yozuvlar yo'q.",
+    closeDayDetail: "Yopish",
   },
   accountTypes: {
     CASH: "Naqd pul",
@@ -179,6 +212,11 @@ const uz: Dictionary = {
     placeholder: "Ismingiz",
     save: "Davom etish",
   },
+  notifications: {
+    dailyReportTitle: "Kunlik hisobot",
+    dailyReportEnabledLabel: "Har kuni hisobot yuborilsin",
+    dailyReportTimeLabel: "Vaqti",
+  },
   error: {
     generic: "Kutilmagan xatolik yuz berdi. Ilovani qayta ochib ko'ring.",
     retry: "Qayta urinish",
@@ -206,8 +244,19 @@ const ru: Dictionary = {
     plan: "План",
   },
   placeholders: {
-    analytics: "Аналитика и отчёты скоро появятся здесь.",
     plan: "Бюджет и планирование скоро появятся здесь.",
+  },
+  analytics: {
+    title: "Аналитика",
+    incomeLabel: "Доход",
+    expenseLabel: "Расход",
+    netLabel: "Чистыми",
+    vsLastMonthLabel: "По сравнению с прошлым месяцем",
+    essentialLabel: "Необходимое",
+    discretionaryLabel: "Необязательное",
+    dailyAverageLabel: "Среднее в день",
+    empty: "В этом месяце пока нет данных.",
+    calendarWeekdays: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"],
   },
   history: {
     title: "История",
@@ -216,6 +265,9 @@ const ru: Dictionary = {
     yesterday: "Вчера",
     deleted: "Удалено",
     deleteConfirm: "Подтвердите удаление",
+    clearFilter: "Очистить фильтр",
+    dayDetailEmpty: "В этот день нет записей.",
+    closeDayDetail: "Закрыть",
   },
   accountTypes: {
     CASH: "Наличные",
@@ -273,6 +325,11 @@ const ru: Dictionary = {
     title: "Как вас называть в приложении?",
     placeholder: "Ваше имя",
     save: "Продолжить",
+  },
+  notifications: {
+    dailyReportTitle: "Ежедневный отчёт",
+    dailyReportEnabledLabel: "Отправлять отчёт каждый день",
+    dailyReportTimeLabel: "Время",
   },
   error: {
     generic: "Произошла непредвиденная ошибка. Откройте приложение ещё раз.",

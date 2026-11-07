@@ -4,8 +4,11 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -303,6 +306,86 @@ class TransactionsService implements Transactions {
         BigDecimal monthExpense = monthTotals.getOrDefault(TransactionType.EXPENSE, BigDecimal.ZERO);
 
         return new TodayAndMonth(todayExpenses, todayTotal, monthIncome, monthExpense, monthIncome.subtract(monthExpense));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PeriodAnalytics analyticsForRange(UUID userId, ZoneId zone, LocalDate from, LocalDate toInclusive) {
+        DateRange.InstantRange range = DateRange.custom(from, toInclusive).toInstantRange(zone);
+        List<Transaction> rangeTx = transactionRepository
+                .findIncomeAndExpenseInRange(userId, range.startInclusive(), range.endExclusive());
+
+        BigDecimal income = sumAmount(rangeTx, TransactionType.INCOME, null);
+        BigDecimal expense = sumAmount(rangeTx, TransactionType.EXPENSE, null);
+        BigDecimal essential = sumAmount(rangeTx, TransactionType.EXPENSE, Necessity.ESSENTIAL);
+        BigDecimal discretionary = sumAmount(rangeTx, TransactionType.EXPENSE, Necessity.DISCRETIONARY);
+        List<CategoryAmount> expenseByCategory = expenseByCategory(rangeTx).entrySet().stream()
+                .map(e -> new CategoryAmount(e.getKey(), e.getValue()))
+                .toList();
+
+        return new PeriodAnalytics(income, expense, essential, discretionary, expenseByCategory);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<DayTotal> dailyTotalsForMonth(UUID userId, ZoneId zone, YearMonth month) {
+        DateRange.InstantRange range = DateRange.ofMonth(month).toInstantRange(zone);
+        List<Transaction> monthTx = transactionRepository
+                .findIncomeAndExpenseInRange(userId, range.startInclusive(), range.endExclusive());
+
+        Map<LocalDate, List<Transaction>> byDay =
+                monthTx.stream().collect(Collectors.groupingBy(t -> t.getTransactionDate().atZone(zone).toLocalDate()));
+
+        return byDay.entrySet().stream()
+                .map(e -> new DayTotal(
+                        e.getKey(),
+                        sumAmount(e.getValue(), TransactionType.INCOME, null),
+                        sumAmount(e.getValue(), TransactionType.EXPENSE, null),
+                        e.getValue().size()))
+                .sorted(Comparator.comparing(DayTotal::date))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DayDetail dayDetail(UUID userId, ZoneId zone, LocalDate date) {
+        List<Transaction> dayTx = findInLocalDay(userId, zone, date);
+        List<BotTransaction> views = dayTx.stream().map(t -> toBotTransaction(toView(t))).toList();
+        return new DayDetail(views, sumAmount(dayTx, TransactionType.INCOME, null), sumAmount(dayTx, TransactionType.EXPENSE, null));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DailyDigest dailyDigest(UUID userId, ZoneId zone, LocalDate date) {
+        List<Transaction> dayTx = findInLocalDay(userId, zone, date);
+        BigDecimal income = sumAmount(dayTx, TransactionType.INCOME, null);
+        BigDecimal expense = sumAmount(dayTx, TransactionType.EXPENSE, null);
+
+        Map.Entry<UUID, BigDecimal> top = expenseByCategory(dayTx).entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .orElse(null);
+
+        return new DailyDigest(income, expense, dayTx.size(), top == null ? null : top.getKey(), top == null ? null : top.getValue());
+    }
+
+    private List<Transaction> findInLocalDay(UUID userId, ZoneId zone, LocalDate date) {
+        DateRange.InstantRange range = DateRange.custom(date, date).toInstantRange(zone);
+        return transactionRepository.findIncomeAndExpenseInRange(userId, range.startInclusive(), range.endExclusive());
+    }
+
+    private Map<UUID, BigDecimal> expenseByCategory(List<Transaction> list) {
+        return list.stream()
+                .filter(t -> t.getType() == TransactionType.EXPENSE && t.getCategoryId() != null)
+                .collect(Collectors.groupingBy(
+                        Transaction::getCategoryId, Collectors.reducing(BigDecimal.ZERO, Transaction::getAmount, BigDecimal::add)));
+    }
+
+    private BigDecimal sumAmount(List<Transaction> list, TransactionType type, Necessity necessity) {
+        return list.stream()
+                .filter(t -> t.getType() == type)
+                .filter(t -> necessity == null || t.getNecessity() == necessity)
+                .map(Transaction::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private Transaction requireOwned(UUID userId, UUID id) {
