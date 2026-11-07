@@ -18,7 +18,7 @@ function loginResponse(accessToken: string): LoginResponse {
     accessToken,
     tokenType: "Bearer",
     expiresIn: 3600,
-    user: { id: "u1", firstName: "Ali", language: "uz", isNew: false },
+    user: { id: "u1", firstName: "Ali", displayName: null, language: "uz", isNew: false },
   };
 }
 

@@ -68,6 +68,8 @@ export interface Dictionary {
   profile: {
     title: string;
     firstName: string;
+    displayName: string;
+    displayNamePlaceholder: string;
     language: string;
     timezone: string;
     timezoneSearchPlaceholder: string;
@@ -76,6 +78,11 @@ export interface Dictionary {
     save: string;
     saved: string;
     conflict: string;
+  };
+  namePrompt: {
+    title: string;
+    placeholder: string;
+    save: string;
   };
   error: {
     generic: string;
@@ -155,7 +162,9 @@ const uz: Dictionary = {
   },
   profile: {
     title: "Profil",
-    firstName: "Ism",
+    firstName: "Telegramdagi ism",
+    displayName: "Ilovadagi ismingiz",
+    displayNamePlaceholder: "Sizni qanday chaqirsak?",
     language: "Til",
     timezone: "Vaqt zonasi",
     timezoneSearchPlaceholder: "Shahar yoki hudud qidiring",
@@ -164,6 +173,11 @@ const uz: Dictionary = {
     save: "Saqlash",
     saved: "Saqlandi",
     conflict: "Ma'lumotlar boshqa joyda o'zgartirildi. Qayta yuklandi.",
+  },
+  namePrompt: {
+    title: "Sizni ilovada qanday ism bilan chaqiramiz?",
+    placeholder: "Ismingiz",
+    save: "Davom etish",
   },
   error: {
     generic: "Kutilmagan xatolik yuz berdi. Ilovani qayta ochib ko'ring.",
@@ -243,7 +257,9 @@ const ru: Dictionary = {
   },
   profile: {
     title: "Профиль",
-    firstName: "Имя",
+    firstName: "Имя в Telegram",
+    displayName: "Ваше имя в приложении",
+    displayNamePlaceholder: "Как вас называть?",
     language: "Язык",
     timezone: "Часовой пояс",
     timezoneSearchPlaceholder: "Найдите город или регион",
@@ -252,6 +268,11 @@ const ru: Dictionary = {
     save: "Сохранить",
     saved: "Сохранено",
     conflict: "Данные были изменены в другом месте. Перезагружено.",
+  },
+  namePrompt: {
+    title: "Как вас называть в приложении?",
+    placeholder: "Ваше имя",
+    save: "Продолжить",
   },
   error: {
     generic: "Произошла непредвиденная ошибка. Откройте приложение ещё раз.",

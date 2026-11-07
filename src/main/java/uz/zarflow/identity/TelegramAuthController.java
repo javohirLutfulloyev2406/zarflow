@@ -31,6 +31,7 @@ class TelegramAuthController {
                 new UserView(
                         result.user().userId(),
                         result.user().firstName(),
+                        result.user().displayName(),
                         result.user().language(),
                         result.user().isNew()));
     }
@@ -41,7 +42,7 @@ class TelegramAuthController {
     record LoginResponse(String accessToken, String tokenType, long expiresIn, UserView user) {
     }
 
-    record UserView(UUID id, String firstName, String language, boolean isNew) {
+    record UserView(UUID id, String firstName, String displayName, String language, boolean isNew) {
     }
 
 }

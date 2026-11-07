@@ -54,12 +54,18 @@ class UserController {
         return toResponse(userProfiles.completeOnboarding(currentUser.requireUserId(), input));
     }
 
+    @PutMapping("/display-name")
+    UserProfileResponse updateDisplayName(@Valid @RequestBody UpdateDisplayNameRequest request) {
+        return toResponse(userProfiles.updateDisplayName(currentUser.requireUserId(), request.displayName()));
+    }
+
     private UserProfileResponse toResponse(UserProfiles.UserProfile profile) {
         return new UserProfileResponse(
                 profile.id(),
                 profile.firstName(),
                 profile.lastName(),
                 profile.username(),
+                profile.displayName(),
                 profile.language(),
                 profile.timezone(),
                 profile.expectedMonthlyIncome(),
@@ -72,6 +78,7 @@ class UserController {
             String firstName,
             String lastName,
             String username,
+            String displayName,
             String language,
             String timezone,
             @Schema(type = "string", example = "8500000.00") BigDecimal expectedMonthlyIncome,
@@ -92,6 +99,9 @@ class UserController {
             @NotNull BigDecimal initialBalance,
             @DecimalMin("0.00") @Digits(integer = 12, fraction = 2)
             @Schema(type = "string", example = "8500000.00") BigDecimal expectedMonthlyIncome) {
+    }
+
+    record UpdateDisplayNameRequest(@NotBlank @Size(max = 50) String displayName) {
     }
 
 }

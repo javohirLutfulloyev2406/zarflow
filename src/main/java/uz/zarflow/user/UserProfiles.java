@@ -21,6 +21,8 @@ public interface UserProfiles {
 
     UserProfile completeOnboarding(UUID userId, OnboardingInput input);
 
+    UserProfile updateDisplayName(UUID userId, String displayName);
+
     ZoneId zoneOf(UUID userId);
 
     Optional<UserSummary> find(UUID userId);
@@ -30,6 +32,7 @@ public interface UserProfiles {
             String firstName,
             String lastName,
             String username,
+            String displayName,
             String language,
             String timezone,
             BigDecimal expectedMonthlyIncome,
