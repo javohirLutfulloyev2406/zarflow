@@ -1,6 +1,6 @@
 package uz.zarflow.account;
 
-enum AccountType {
+public enum AccountType {
     CASH,
     BANK_CARD,
     BANK_ACCOUNT,

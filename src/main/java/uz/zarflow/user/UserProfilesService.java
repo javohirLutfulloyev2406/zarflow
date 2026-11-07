@@ -1,7 +1,9 @@
 package uz.zarflow.user;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.DateTimeException;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Optional;
 import java.util.UUID;
@@ -10,8 +12,10 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import uz.zarflow.account.Accounts;
 import uz.zarflow.shared.common.Money;
 import uz.zarflow.shared.config.ZarflowProperties;
+import uz.zarflow.shared.exception.BusinessRuleException;
 import uz.zarflow.shared.exception.ConflictException;
 import uz.zarflow.shared.exception.NotFoundException;
 
@@ -20,10 +24,14 @@ class UserProfilesService implements UserProfiles {
 
     private final UserRepository userRepository;
     private final ZarflowProperties zarflowProperties;
+    private final Accounts accounts;
+    private final Clock clock;
 
-    UserProfilesService(UserRepository userRepository, ZarflowProperties zarflowProperties) {
+    UserProfilesService(UserRepository userRepository, ZarflowProperties zarflowProperties, Accounts accounts, Clock clock) {
         this.userRepository = userRepository;
         this.zarflowProperties = zarflowProperties;
+        this.accounts = accounts;
+        this.clock = clock;
     }
 
     @Override
@@ -37,6 +45,24 @@ class UserProfilesService implements UserProfiles {
     public UserProfile updateSettings(UUID userId, SettingsUpdate update) {
         User user = requireActiveUser(userId);
         user.updateSettings(update.language(), update.timezone(), update.expectedMonthlyIncome());
+        try {
+            userRepository.saveAndFlush(user);
+        } catch (ObjectOptimisticLockingFailureException ex) {
+            throw new ConflictException("user.concurrent_update");
+        }
+        return toProfile(user);
+    }
+
+    @Override
+    @Transactional
+    public UserProfile completeOnboarding(UUID userId, OnboardingInput input) {
+        User user = requireActiveUser(userId);
+        if (user.getOnboardingCompletedAt() != null) {
+            throw new BusinessRuleException("user.onboarding_already_completed");
+        }
+        accounts.create(userId, new Accounts.CreateAccount(
+                input.accountName(), input.accountType(), input.initialBalance(), null, true));
+        user.completeOnboarding(input.expectedMonthlyIncome(), Instant.now(clock));
         try {
             userRepository.saveAndFlush(user);
         } catch (ObjectOptimisticLockingFailureException ex) {

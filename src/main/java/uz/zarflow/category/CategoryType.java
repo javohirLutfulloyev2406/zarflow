@@ -1,6 +1,6 @@
 package uz.zarflow.category;
 
-enum CategoryType {
+public enum CategoryType {
     INCOME,
     EXPENSE
 }

@@ -1,5 +1,7 @@
 package uz.zarflow.user;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Optional;
 import java.util.UUID;
@@ -11,6 +13,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
+import uz.zarflow.account.Accounts;
 import uz.zarflow.shared.config.ZarflowProperties;
 import uz.zarflow.shared.exception.ConflictException;
 import uz.zarflow.shared.exception.NotFoundException;
@@ -26,12 +29,16 @@ class UserProfilesServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private Accounts accounts;
+
     private final ZarflowProperties zarflowProperties = new ZarflowProperties("Asia/Tashkent");
+    private final Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneId.of("UTC"));
     private UserProfilesService service;
 
     @BeforeEach
     void setUp() {
-        service = new UserProfilesService(userRepository, zarflowProperties);
+        service = new UserProfilesService(userRepository, zarflowProperties, accounts, clock);
     }
 
     @Test

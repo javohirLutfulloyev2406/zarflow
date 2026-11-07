@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 import { AppRouter } from "./app/router";
 import { Providers } from "./app/providers";
 import { DebugPanel } from "./debug/DebugPanel";
 import { OutsideTelegramScreen } from "./components/OutsideTelegramScreen";
+import { getMe } from "./api/users";
 import { useAuth } from "./auth/AuthProvider";
 import { useDictionary } from "./i18n/dictionary";
+import { Onboarding } from "./screens/Onboarding";
 import { Splash } from "./screens/Splash";
 import { bootstrapTelegram, isRunningInTelegram } from "./telegram/sdk";
 import { useTelegramTheme } from "./telegram/theme";
@@ -47,6 +50,7 @@ export function App() {
 function AppShell() {
   useTelegramTheme();
   const auth = useAuth();
+  const me = useQuery({ queryKey: ["me"], queryFn: getMe, enabled: auth.status === "ready" });
 
   if (auth.status === "loading") {
     return <Splash />;
@@ -54,6 +58,18 @@ function AppShell() {
 
   if (auth.status === "error") {
     return <GenericErrorScreen detail={auth.errorDetail} onRetry={auth.retry} />;
+  }
+
+  if (me.isPending) {
+    return <Splash />;
+  }
+
+  if (me.isError) {
+    return <GenericErrorScreen onRetry={() => me.refetch()} />;
+  }
+
+  if (!me.data.onboardingCompleted) {
+    return <Onboarding />;
   }
 
   return (

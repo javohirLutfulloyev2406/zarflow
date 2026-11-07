@@ -1,4 +1,4 @@
-import { createHashRouter, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
 
 import { TabsLayout } from "./TabsLayout";
 import { Home } from "../screens/Home";
@@ -7,7 +7,7 @@ import { Analytics } from "../screens/Analytics";
 import { Plan } from "../screens/Plan";
 import { Profile } from "../screens/Profile";
 
-const router = createHashRouter([
+const router = createBrowserRouter([
   {
     element: <TabsLayout />,
     children: [
