@@ -6,11 +6,13 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.botapimethods.BotApiMethod;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.menubutton.SetChatMenuButton;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updates.SetWebhook;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
 import org.telegram.telegrambots.meta.api.objects.menubutton.MenuButtonWebApp;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
@@ -37,6 +39,25 @@ class TelegramGatewayImpl implements TelegramGateway {
                 .replyMarkup(replyMarkup)
                 .build();
         execute(message, "sendMessage");
+    }
+
+    @Override
+    public void editMessageText(long chatId, int messageId, String text, InlineKeyboardMarkup replyMarkup) {
+        EditMessageText message = EditMessageText.builder()
+                .chatId(String.valueOf(chatId))
+                .messageId(messageId)
+                .text(text)
+                .replyMarkup(replyMarkup)
+                .build();
+        execute(message, "editMessageText");
+    }
+
+    @Override
+    public void answerCallbackQuery(String callbackQueryId) {
+        AnswerCallbackQuery method = AnswerCallbackQuery.builder()
+                .callbackQueryId(callbackQueryId)
+                .build();
+        execute(method, "answerCallbackQuery");
     }
 
     @Override

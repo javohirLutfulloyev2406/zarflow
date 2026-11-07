@@ -2,11 +2,13 @@ package uz.zarflow.transaction;
 
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -61,37 +63,104 @@ class TransactionsService implements Transactions {
 
     @Transactional
     TransactionView create(UUID userId, CreateCommand cmd) {
-        if (cmd.idempotencyKey() != null) {
-            var existing = transactionRepository.findByUserIdAndIdempotencyKey(userId, cmd.idempotencyKey());
+        return createInternal(
+                userId, cmd.accountId(), cmd.categoryId(), cmd.type(), cmd.amount(), cmd.necessity(),
+                cmd.transactionDate(), cmd.description(), TransactionSource.MINI_APP, cmd.idempotencyKey());
+    }
+
+    @Override
+    @Transactional
+    public BotTransaction createFromBot(UUID userId, BotCreateInput input) {
+        TransactionView view = createInternal(
+                userId, input.accountId(), input.categoryId(), input.type(), input.amount(), input.necessity(),
+                null, input.description(), TransactionSource.BOT, input.idempotencyKey());
+        return toBotTransaction(view);
+    }
+
+    private TransactionView createInternal(
+            UUID userId, UUID accountId, UUID categoryId, TransactionType type, BigDecimal amount,
+            Necessity necessity, Instant requestedDate, String description, TransactionSource source,
+            String idempotencyKey) {
+        if (idempotencyKey != null) {
+            var existing = transactionRepository.findByUserIdAndIdempotencyKey(userId, idempotencyKey);
             if (existing.isPresent()) {
                 return toView(existing.get());
             }
         }
-        if (cmd.type() == TransactionType.TRANSFER) {
+        if (type == TransactionType.TRANSFER) {
             throw new BusinessRuleException("transaction.use_transfer_endpoint");
         }
-        Instant transactionDate = cmd.transactionDate() == null ? Instant.now(clock) : cmd.transactionDate();
+        Instant transactionDate = requestedDate == null ? Instant.now(clock) : requestedDate;
         requireNotFuture(transactionDate);
-        accounts.requireOwned(userId, cmd.accountId());
-        Categories.CategoryOwnership category = categories.requireUsable(userId, cmd.categoryId());
-        requireCategoryMatchesType(cmd.type(), category.type());
-        Necessity necessity = resolveNecessity(cmd.type(), cmd.necessity(), category.necessity());
+        accounts.requireOwned(userId, accountId);
+        Categories.CategoryOwnership category = categories.requireUsable(userId, categoryId);
+        requireCategoryMatchesType(type, category.type());
+        Necessity resolvedNecessity = resolveNecessity(type, necessity, category.necessity());
 
         Transaction transaction = new Transaction(
-                userId, cmd.accountId(), cmd.categoryId(), cmd.type(), cmd.amount(), necessity,
-                transactionDate, cmd.description(), TransactionSource.MINI_APP, null, cmd.idempotencyKey());
+                userId, accountId, categoryId, type, amount, resolvedNecessity,
+                transactionDate, description, source, null, idempotencyKey);
         try {
             transactionRepository.save(transaction);
         } catch (DataIntegrityViolationException ex) {
-            if (cmd.idempotencyKey() == null) {
+            if (idempotencyKey == null) {
                 throw ex;
             }
-            return transactionRepository.findByUserIdAndIdempotencyKey(userId, cmd.idempotencyKey())
+            return transactionRepository.findByUserIdAndIdempotencyKey(userId, idempotencyKey)
                     .map(this::toView)
                     .orElseThrow(() -> ex);
         }
         audit(transaction.getId(), TransactionAuditAction.CREATE, null, transaction);
         return toView(transaction);
+    }
+
+    @Override
+    @Transactional
+    public BotTransaction updateCategory(UUID userId, UUID transactionId, UUID categoryId) {
+        Transaction transaction = requireOwned(userId, transactionId);
+        if (transaction.getType() == TransactionType.TRANSFER) {
+            throw new BusinessRuleException("transaction.transfer_not_editable");
+        }
+        Categories.CategoryOwnership category = categories.requireUsable(userId, categoryId);
+        requireCategoryMatchesType(transaction.getType(), category.type());
+        Necessity necessity = resolveNecessity(transaction.getType(), null, category.necessity());
+
+        TransactionView before = toView(transaction);
+        transaction.update(transaction.getAccountId(), categoryId, transaction.getAmount(), necessity,
+                transaction.getTransactionDate(), transaction.getDescription());
+        transactionRepository.save(transaction);
+        audit(transaction.getId(), TransactionAuditAction.UPDATE, before, toView(transaction));
+        return toBotTransaction(toView(transaction));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BotTransaction> listToday(UUID userId, ZoneId zone) {
+        DateRange.InstantRange today = DateRange.today(clock, zone).toInstantRange(zone);
+        return transactionRepository
+                .findIncomeAndExpenseInRange(userId, today.startInclusive(), today.endExclusive()).stream()
+                .map(t -> toBotTransaction(toView(t)))
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public Optional<BotTransaction> undoLast(UUID userId) {
+        Instant cutoff = Instant.now(clock).minus(Duration.ofHours(24));
+        Optional<Transaction> lastOpt =
+                transactionRepository.findTopByUserIdAndDeletedAtIsNullAndCreatedAtAfterOrderByCreatedAtDesc(userId, cutoff);
+        if (lastOpt.isEmpty()) {
+            return Optional.empty();
+        }
+        Transaction last = lastOpt.get();
+        BotTransaction result = toBotTransaction(toView(last));
+        if (last.getType() == TransactionType.TRANSFER && last.getTransferGroupId() != null) {
+            transactionRepository.findByTransferGroupIdAndDeletedAtIsNull(last.getTransferGroupId())
+                    .forEach(this::softDeleteEntity);
+        } else {
+            softDeleteEntity(last);
+        }
+        return Optional.of(result);
     }
 
     @Transactional
@@ -119,9 +188,20 @@ class TransactionsService implements Transactions {
         return toView(transaction);
     }
 
+    @Override
     @Transactional
-    void delete(UUID userId, UUID id) {
-        Transaction transaction = requireOwned(userId, id);
+    public void softDelete(UUID userId, UUID id) {
+        softDeleteEntity(requireOwned(userId, id));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<BotTransaction> find(UUID userId, UUID transactionId) {
+        return transactionRepository.findByIdAndUserIdAndDeletedAtIsNull(transactionId, userId)
+                .map(t -> toBotTransaction(toView(t)));
+    }
+
+    private void softDeleteEntity(Transaction transaction) {
         TransactionView before = toView(transaction);
         transaction.softDelete(Instant.now(clock));
         transactionRepository.save(transaction);
@@ -266,6 +346,12 @@ class TransactionsService implements Transactions {
             log.warn("Failed to serialize transaction audit payload", ex);
             return null;
         }
+    }
+
+    private BotTransaction toBotTransaction(TransactionView view) {
+        return new BotTransaction(
+                view.id(), view.accountId(), view.categoryId(), view.type(), view.amount(),
+                view.description(), view.transactionDate());
     }
 
     private TransactionView toView(Transaction t) {

@@ -9,6 +9,8 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMa
 class FakeTelegramGateway implements TelegramGateway {
 
     private final List<SentMessage> sentMessages = new ArrayList<>();
+    private final List<EditMessageCall> editMessageCalls = new ArrayList<>();
+    private final List<String> answeredCallbackQueryIds = new ArrayList<>();
     private final List<SetWebhookCall> setWebhookCalls = new ArrayList<>();
     private final List<SetChatMenuButtonCall> setChatMenuButtonCalls = new ArrayList<>();
     private final List<SetMyCommandsCall> setMyCommandsCalls = new ArrayList<>();
@@ -16,6 +18,16 @@ class FakeTelegramGateway implements TelegramGateway {
     @Override
     public void sendMessage(long chatId, String text, InlineKeyboardMarkup replyMarkup) {
         sentMessages.add(new SentMessage(chatId, text, replyMarkup));
+    }
+
+    @Override
+    public void editMessageText(long chatId, int messageId, String text, InlineKeyboardMarkup replyMarkup) {
+        editMessageCalls.add(new EditMessageCall(chatId, messageId, text, replyMarkup));
+    }
+
+    @Override
+    public void answerCallbackQuery(String callbackQueryId) {
+        answeredCallbackQueryIds.add(callbackQueryId);
     }
 
     @Override
@@ -35,6 +47,14 @@ class FakeTelegramGateway implements TelegramGateway {
 
     List<SentMessage> sentMessages() {
         return List.copyOf(sentMessages);
+    }
+
+    List<EditMessageCall> editMessageCalls() {
+        return List.copyOf(editMessageCalls);
+    }
+
+    List<String> answeredCallbackQueryIds() {
+        return List.copyOf(answeredCallbackQueryIds);
     }
 
     List<SetWebhookCall> setWebhookCalls() {
@@ -62,6 +82,9 @@ class FakeTelegramGateway implements TelegramGateway {
     }
 
     record SentMessage(long chatId, String text, InlineKeyboardMarkup replyMarkup) {
+    }
+
+    record EditMessageCall(long chatId, int messageId, String text, InlineKeyboardMarkup replyMarkup) {
     }
 
     record SetWebhookCall(String url, String secretToken, List<String> allowedUpdates, boolean dropPendingUpdates) {

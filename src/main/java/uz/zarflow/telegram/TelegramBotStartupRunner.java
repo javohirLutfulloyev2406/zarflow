@@ -19,11 +19,17 @@ class TelegramBotStartupRunner implements ApplicationRunner {
 
     private static final List<BotCommand> COMMANDS_UZ = List.of(
             new BotCommand("start", "Botni ishga tushirish"),
+            new BotCommand("today", "Bugungi kirim-chiqim"),
+            new BotCommand("balance", "Hisoblar balansi"),
+            new BotCommand("undo", "Oxirgi yozuvni bekor qilish"),
             new BotCommand("app", "ZarFlow ilovasini ochish"),
             new BotCommand("help", "Yordam"));
 
     private static final List<BotCommand> COMMANDS_RU = List.of(
             new BotCommand("start", "Запустить бота"),
+            new BotCommand("today", "Доход и расход за сегодня"),
+            new BotCommand("balance", "Баланс по счетам"),
+            new BotCommand("undo", "Отменить последнюю запись"),
             new BotCommand("app", "Открыть приложение ZarFlow"),
             new BotCommand("help", "Помощь"));
 
