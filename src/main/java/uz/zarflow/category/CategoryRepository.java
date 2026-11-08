@@ -22,7 +22,7 @@ interface CategoryRepository extends Repository<Category, UUID> {
     @Query(value = """
             SELECT c.id AS id, c.code AS code, c.name_uz AS nameUz, c.name_ru AS nameRu,
                    c.type AS type, c.necessity AS necessity, c.icon AS icon, c.color AS color,
-                   COUNT(t.id) AS usageCount
+                   c.fixed_default AS fixedDefault, COUNT(t.id) AS usageCount
             FROM categories c
             LEFT JOIN transactions t ON t.category_id = c.id AND t.user_id = :userId AND t.deleted_at IS NULL
             WHERE (c.user_id IS NULL OR c.user_id = :userId) AND c.archived_at IS NULL
@@ -47,6 +47,8 @@ interface CategoryRepository extends Repository<Category, UUID> {
         String getIcon();
 
         String getColor();
+
+        boolean getFixedDefault();
 
         long getUsageCount();
     }

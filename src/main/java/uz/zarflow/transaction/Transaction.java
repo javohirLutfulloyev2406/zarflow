@@ -53,6 +53,8 @@ class Transaction {
 
     private String idempotencyKey;
 
+    private boolean isFixed;
+
     @CreationTimestamp
     private Instant createdAt;
 
@@ -75,7 +77,8 @@ class Transaction {
             String description,
             TransactionSource source,
             UUID transferGroupId,
-            String idempotencyKey) {
+            String idempotencyKey,
+            boolean isFixed) {
         this.userId = userId;
         this.accountId = accountId;
         this.categoryId = categoryId;
@@ -88,16 +91,18 @@ class Transaction {
         this.source = source;
         this.transferGroupId = transferGroupId;
         this.idempotencyKey = idempotencyKey;
+        this.isFixed = isFixed;
     }
 
     void update(UUID accountId, UUID categoryId, BigDecimal amount, Necessity necessity,
-            Instant transactionDate, String description) {
+            Instant transactionDate, String description, boolean isFixed) {
         this.accountId = accountId;
         this.categoryId = categoryId;
         this.amount = amount;
         this.necessity = necessity;
         this.transactionDate = transactionDate;
         this.description = description;
+        this.isFixed = isFixed;
     }
 
     void softDelete(Instant at) {
@@ -154,6 +159,10 @@ class Transaction {
 
     String getIdempotencyKey() {
         return idempotencyKey;
+    }
+
+    boolean isFixed() {
+        return isFixed;
     }
 
     Instant getCreatedAt() {

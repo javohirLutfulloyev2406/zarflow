@@ -34,6 +34,7 @@ import org.telegram.telegrambots.meta.api.objects.webapp.WebAppInfo;
 
 import uz.zarflow.account.AccountType;
 import uz.zarflow.account.Accounts;
+import uz.zarflow.budget.Budgets;
 import uz.zarflow.category.CategoryType;
 import uz.zarflow.category.Categories;
 import uz.zarflow.shared.common.DateRange;
@@ -58,6 +59,7 @@ class TelegramUpdateService {
     private final Accounts accounts;
     private final Categories categories;
     private final Transactions transactions;
+    private final Budgets budgets;
     private final UserParsingMemoryRepository parsingMemoryRepository;
     private final TelegramPendingEntryRepository pendingEntryRepository;
     private final TelegramGateway telegramGateway;
@@ -75,6 +77,7 @@ class TelegramUpdateService {
             Accounts accounts,
             Categories categories,
             Transactions transactions,
+            Budgets budgets,
             UserParsingMemoryRepository parsingMemoryRepository,
             TelegramPendingEntryRepository pendingEntryRepository,
             TelegramGateway telegramGateway,
@@ -89,6 +92,7 @@ class TelegramUpdateService {
         this.accounts = accounts;
         this.categories = categories;
         this.transactions = transactions;
+        this.budgets = budgets;
         this.parsingMemoryRepository = parsingMemoryRepository;
         this.pendingEntryRepository = pendingEntryRepository;
         this.telegramGateway = telegramGateway;
@@ -263,12 +267,24 @@ class TelegramUpdateService {
             text = messageSource.getMessage("bot.quick-input-saved-expense",
                     new Object[]{amountText, categoryLabel, accountName, moneyFormatter.format(Money.of(todayTotal), locale)},
                     locale);
+            text = appendTodayLeftLine(text, userId, locale);
         } else {
             text = messageSource.getMessage(
                     "bot.quick-input-saved-income", new Object[]{amountText, categoryLabel, accountName}, locale);
         }
         InlineKeyboardMarkup markup = savedTransactionButtons(locale, saved.id());
         sendSafely(chatId, text, markup, "bot.quick-input-saved-expense");
+    }
+
+    private String appendTodayLeftLine(String text, UUID userId, Locale locale) {
+        return budgets.getToday(userId).map(today -> {
+            String line = today.overspentToday()
+                    ? messageSource.getMessage("bot.quick-input-today-over",
+                            new Object[]{moneyFormatter.format(Money.of(today.overspentAmount()), locale)}, locale)
+                    : messageSource.getMessage("bot.quick-input-today-left",
+                            new Object[]{moneyFormatter.format(Money.of(today.todayLeft()), locale)}, locale);
+            return text + "\n" + line;
+        }).orElse(text);
     }
 
     private InlineKeyboardMarkup savedTransactionButtons(Locale locale, UUID transactionId) {
@@ -477,6 +493,7 @@ class TelegramUpdateService {
             text = messageSource.getMessage("bot.quick-input-saved-expense",
                     new Object[]{amountText, categoryLabel, accountName, moneyFormatter.format(Money.of(todayTotal), locale)},
                     locale);
+            text = appendTodayLeftLine(text, userId, locale);
         } else {
             text = messageSource.getMessage(
                     "bot.quick-input-saved-income", new Object[]{amountText, categoryLabel, accountName}, locale);
@@ -535,6 +552,16 @@ class TelegramUpdateService {
                 "bot.today-income", new Object[]{moneyFormatter.format(Money.of(income), locale)}, locale)).append('\n');
         sb.append(messageSource.getMessage(
                 "bot.today-expense", new Object[]{moneyFormatter.format(Money.of(expense), locale)}, locale)).append('\n');
+        budgets.getToday(userId).ifPresent(today -> {
+            sb.append(messageSource.getMessage("bot.today-allowance",
+                    new Object[]{moneyFormatter.format(Money.of(today.dailyAllowance()), locale)}, locale)).append('\n');
+            String leftLine = today.overspentToday()
+                    ? messageSource.getMessage("bot.quick-input-today-over",
+                            new Object[]{moneyFormatter.format(Money.of(today.overspentAmount()), locale)}, locale)
+                    : messageSource.getMessage("bot.quick-input-today-left",
+                            new Object[]{moneyFormatter.format(Money.of(today.todayLeft()), locale)}, locale);
+            sb.append(leftLine).append('\n');
+        });
         int shown = 0;
         for (var t : todayTx) {
             if (shown >= 10) {

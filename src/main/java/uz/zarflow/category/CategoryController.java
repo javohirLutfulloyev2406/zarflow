@@ -29,7 +29,7 @@ class CategoryController {
     private CategoryResponse toResponse(Categories.CategoryView view) {
         return new CategoryResponse(
                 view.id(), view.code(), view.nameUz(), view.nameRu(), view.type(),
-                view.necessity(), view.icon(), view.color());
+                view.necessity(), view.icon(), view.color(), view.fixedDefault());
     }
 
     record CategoryResponse(
@@ -40,7 +40,8 @@ class CategoryController {
             CategoryType type,
             Necessity necessity,
             String icon,
-            String color) {
+            String color,
+            boolean fixedDefault) {
     }
 
 }

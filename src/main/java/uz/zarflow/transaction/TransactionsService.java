@@ -17,6 +17,7 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -48,6 +49,7 @@ class TransactionsService implements Transactions {
     private final Categories categories;
     private final Clock clock;
     private final ObjectMapper objectMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     TransactionsService(
             TransactionRepository transactionRepository,
@@ -55,20 +57,22 @@ class TransactionsService implements Transactions {
             Accounts accounts,
             Categories categories,
             Clock clock,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            ApplicationEventPublisher eventPublisher) {
         this.transactionRepository = transactionRepository;
         this.auditRepository = auditRepository;
         this.accounts = accounts;
         this.categories = categories;
         this.clock = clock;
         this.objectMapper = objectMapper;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
     TransactionView create(UUID userId, CreateCommand cmd) {
         return createInternal(
                 userId, cmd.accountId(), cmd.categoryId(), cmd.type(), cmd.amount(), cmd.necessity(),
-                cmd.transactionDate(), cmd.description(), TransactionSource.MINI_APP, cmd.idempotencyKey());
+                cmd.transactionDate(), cmd.description(), TransactionSource.MINI_APP, cmd.idempotencyKey(), cmd.isFixed());
     }
 
     @Override
@@ -76,14 +80,14 @@ class TransactionsService implements Transactions {
     public BotTransaction createFromBot(UUID userId, BotCreateInput input) {
         TransactionView view = createInternal(
                 userId, input.accountId(), input.categoryId(), input.type(), input.amount(), input.necessity(),
-                null, input.description(), TransactionSource.BOT, input.idempotencyKey());
+                null, input.description(), TransactionSource.BOT, input.idempotencyKey(), null);
         return toBotTransaction(view);
     }
 
     private TransactionView createInternal(
             UUID userId, UUID accountId, UUID categoryId, TransactionType type, BigDecimal amount,
             Necessity necessity, Instant requestedDate, String description, TransactionSource source,
-            String idempotencyKey) {
+            String idempotencyKey, Boolean isFixedOverride) {
         if (idempotencyKey != null) {
             var existing = transactionRepository.findByUserIdAndIdempotencyKey(userId, idempotencyKey);
             if (existing.isPresent()) {
@@ -99,10 +103,11 @@ class TransactionsService implements Transactions {
         Categories.CategoryOwnership category = categories.requireUsable(userId, categoryId);
         requireCategoryMatchesType(type, category.type());
         Necessity resolvedNecessity = resolveNecessity(type, necessity, category.necessity());
+        boolean isFixed = isFixedOverride != null ? isFixedOverride : category.fixedDefault();
 
         Transaction transaction = new Transaction(
                 userId, accountId, categoryId, type, amount, resolvedNecessity,
-                transactionDate, description, source, null, idempotencyKey);
+                transactionDate, description, source, null, idempotencyKey, isFixed);
         try {
             transactionRepository.save(transaction);
         } catch (DataIntegrityViolationException ex) {
@@ -114,6 +119,9 @@ class TransactionsService implements Transactions {
                     .orElseThrow(() -> ex);
         }
         audit(transaction.getId(), TransactionAuditAction.CREATE, null, transaction);
+        if (type == TransactionType.EXPENSE) {
+            eventPublisher.publishEvent(new ExpenseRecorded(userId, categoryId));
+        }
         return toView(transaction);
     }
 
@@ -130,9 +138,12 @@ class TransactionsService implements Transactions {
 
         TransactionView before = toView(transaction);
         transaction.update(transaction.getAccountId(), categoryId, transaction.getAmount(), necessity,
-                transaction.getTransactionDate(), transaction.getDescription());
+                transaction.getTransactionDate(), transaction.getDescription(), transaction.isFixed());
         transactionRepository.save(transaction);
         audit(transaction.getId(), TransactionAuditAction.UPDATE, before, toView(transaction));
+        if (transaction.getType() == TransactionType.EXPENSE) {
+            eventPublisher.publishEvent(new ExpenseRecorded(userId, categoryId));
+        }
         return toBotTransaction(toView(transaction));
     }
 
@@ -184,10 +195,15 @@ class TransactionsService implements Transactions {
             necessity = null;
         }
 
+        boolean isFixed = cmd.isFixed() != null ? cmd.isFixed() : transaction.isFixed();
+
         TransactionView before = toView(transaction);
-        transaction.update(cmd.accountId(), cmd.categoryId(), cmd.amount(), necessity, transactionDate, cmd.description());
+        transaction.update(cmd.accountId(), cmd.categoryId(), cmd.amount(), necessity, transactionDate, cmd.description(), isFixed);
         transactionRepository.save(transaction);
         audit(transaction.getId(), TransactionAuditAction.UPDATE, before, toView(transaction));
+        if (transaction.getType() == TransactionType.EXPENSE) {
+            eventPublisher.publishEvent(new ExpenseRecorded(userId, transaction.getCategoryId()));
+        }
         return toView(transaction);
     }
 
@@ -257,10 +273,10 @@ class TransactionsService implements Transactions {
         UUID transferGroupId = UUID.randomUUID();
         Transaction outgoing = new Transaction(
                 userId, cmd.fromAccountId(), null, TransactionType.TRANSFER, cmd.amount().negate(), null,
-                transactionDate, cmd.description(), TransactionSource.MINI_APP, transferGroupId, null);
+                transactionDate, cmd.description(), TransactionSource.MINI_APP, transferGroupId, null, false);
         Transaction incoming = new Transaction(
                 userId, cmd.toAccountId(), null, TransactionType.TRANSFER, cmd.amount(), null,
-                transactionDate, cmd.description(), TransactionSource.MINI_APP, transferGroupId, null);
+                transactionDate, cmd.description(), TransactionSource.MINI_APP, transferGroupId, null, false);
         transactionRepository.save(outgoing);
         transactionRepository.save(incoming);
         audit(outgoing.getId(), TransactionAuditAction.CREATE, null, outgoing);
@@ -280,7 +296,7 @@ class TransactionsService implements Transactions {
         BigDecimal amount = delta.abs();
         Transaction transaction = new Transaction(
                 userId, accountId, null, type, amount, null, Instant.now(clock),
-                description == null ? "Balans tuzatish" : description, TransactionSource.MINI_APP, null, null);
+                description == null ? "Balans tuzatish" : description, TransactionSource.MINI_APP, null, null, false);
         transactionRepository.save(transaction);
         audit(transaction.getId(), TransactionAuditAction.CREATE, null, transaction);
         return toView(transaction);
@@ -368,6 +384,15 @@ class TransactionsService implements Transactions {
         return new DailyDigest(income, expense, dayTx.size(), top == null ? null : top.getKey(), top == null ? null : top.getValue());
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<MonthEntry> monthEntries(UUID userId, ZoneId zone, YearMonth month) {
+        DateRange.InstantRange range = DateRange.ofMonth(month).toInstantRange(zone);
+        return transactionRepository.findIncomeAndExpenseInRange(userId, range.startInclusive(), range.endExclusive()).stream()
+                .map(t -> new MonthEntry(t.getType(), t.getAmount(), t.isFixed(), t.getCategoryId(), t.getTransactionDate()))
+                .toList();
+    }
+
     private List<Transaction> findInLocalDay(UUID userId, ZoneId zone, LocalDate date) {
         DateRange.InstantRange range = DateRange.custom(date, date).toInstantRange(zone);
         return transactionRepository.findIncomeAndExpenseInRange(userId, range.startInclusive(), range.endExclusive());
@@ -441,17 +466,17 @@ class TransactionsService implements Transactions {
         return new TransactionView(
                 t.getId(), t.getAccountId(), t.getCategoryId(), t.getType(), t.getAmount(), t.getCurrency(),
                 t.getNecessity(), t.getTransactionDate(), t.getDescription(), t.getTransferGroupId(),
-                t.getCreatedAt(), t.getUpdatedAt());
+                t.getCreatedAt(), t.getUpdatedAt(), t.isFixed());
     }
 
     record CreateCommand(
             UUID accountId, UUID categoryId, TransactionType type, BigDecimal amount, Necessity necessity,
-            Instant transactionDate, String description, String idempotencyKey) {
+            Instant transactionDate, String description, String idempotencyKey, Boolean isFixed) {
     }
 
     record UpdateCommand(
             UUID accountId, UUID categoryId, BigDecimal amount, Necessity necessity,
-            Instant transactionDate, String description) {
+            Instant transactionDate, String description, Boolean isFixed) {
     }
 
     record SearchCommand(Instant from, Instant to, TransactionType type, UUID categoryId, UUID accountId, String q) {
@@ -463,7 +488,7 @@ class TransactionsService implements Transactions {
     record TransactionView(
             UUID id, UUID accountId, UUID categoryId, TransactionType type, BigDecimal amount, String currency,
             Necessity necessity, Instant transactionDate, String description, UUID transferGroupId,
-            Instant createdAt, Instant updatedAt) {
+            Instant createdAt, Instant updatedAt, boolean isFixed) {
     }
 
     record TransferResult(UUID transferGroupId, TransactionView fromLeg, TransactionView toLeg) {

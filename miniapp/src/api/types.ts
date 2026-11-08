@@ -101,6 +101,7 @@ export interface Category {
   necessity: Necessity | null;
   icon: string;
   color: string;
+  fixedDefault: boolean;
 }
 
 /** Mirrors TransactionController.TransactionResponse. */
@@ -115,6 +116,7 @@ export interface Transaction {
   transactionDate: string;
   description: string | null;
   transferGroupId: string | null;
+  isFixed: boolean;
 }
 
 export interface CreateTransactionRequest {
@@ -125,6 +127,7 @@ export interface CreateTransactionRequest {
   necessity?: Necessity | null;
   transactionDate?: string | null;
   description?: string | null;
+  isFixed?: boolean | null;
 }
 
 export interface UpdateTransactionRequest {
@@ -134,6 +137,7 @@ export interface UpdateTransactionRequest {
   necessity?: Necessity | null;
   transactionDate?: string | null;
   description?: string | null;
+  isFixed?: boolean | null;
 }
 
 export interface TransferRequest {
@@ -265,4 +269,57 @@ export interface NotificationSettings {
 export interface UpdateNotificationSettingsRequest {
   dailyReportEnabled: boolean;
   dailyReportTime: string;
+}
+
+/** Mirrors BudgetController.LimitResponse. */
+export interface BudgetLimitView {
+  categoryId: string;
+  categoryName: string;
+  categoryColor: string | null;
+  categoryIcon: string | null;
+  amount: string;
+  spent: string;
+  percent: string;
+}
+
+/** Mirrors BudgetController.BudgetResponse. Fields are null when hasBudget is false. */
+export interface BudgetResponse {
+  hasBudget: boolean;
+  month: string;
+  expectedIncome: string | null;
+  fixedPayments: string | null;
+  loanPayments: string | null;
+  plannedSavings: string | null;
+  freeBudget: string | null;
+  limits: BudgetLimitView[];
+}
+
+/** Mirrors BudgetController.TodayResponse. Fields are null when hasBudget is false. */
+export interface TodayBudgetResponse {
+  hasBudget: boolean;
+  dailyAllowance: string | null;
+  spentToday: string | null;
+  todayLeft: string | null;
+  overspentToday: boolean;
+  overspentAmount: string | null;
+  tomorrowAllowance: string | null;
+  freeBudget: string | null;
+  obligationsExceedIncome: boolean;
+  forecastOverage: string | null;
+  forecastPositive: boolean;
+  limits: BudgetLimitView[];
+}
+
+export interface UpdateBudgetLimitRequest {
+  categoryId: string;
+  amount: string;
+}
+
+/** Mirrors BudgetController.UpdateBudgetRequest. */
+export interface UpdateBudgetRequest {
+  expectedIncome: string;
+  fixedPayments: string;
+  loanPayments: string;
+  plannedSavings: string;
+  limits: UpdateBudgetLimitRequest[];
 }

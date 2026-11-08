@@ -5,7 +5,7 @@ import { listAccounts } from "../api/accounts";
 import { listCategories } from "../api/categories";
 import { ApiError } from "../api/problemDetail";
 import { createTransaction, deleteTransaction, transfer, updateTransaction } from "../api/transactions";
-import type { Transaction, TransactionType } from "../api/types";
+import type { Category, Transaction, TransactionType } from "../api/types";
 import { useDictionary } from "../i18n/dictionary";
 import { useLanguage } from "../i18n/useLanguage";
 import { formatMoney } from "../money/formatMoney";
@@ -33,10 +33,18 @@ export function QuickAddSheet({
   const [accountId, setAccountId] = useState<string | null>(editing?.accountId ?? null);
   const [toAccountId, setToAccountId] = useState<string | null>(null);
   const [note, setNote] = useState(editing?.description ?? "");
+  const [isFixed, setIsFixed] = useState(editing?.isFixed ?? false);
   const [error, setError] = useState<string | null>(null);
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: listAccounts });
   const { data: categories = [] } = useQuery({ queryKey: ["categories"], queryFn: listCategories });
+
+  function selectCategory(category: Category) {
+    setCategoryId(category.id);
+    if (!editing) {
+      setIsFixed(category.fixedDefault);
+    }
+  }
 
   const effectiveAccountId = accountId ?? accounts.find((a) => a.isDefault)?.id ?? accounts[0]?.id ?? null;
   const effectiveToAccountId =
@@ -86,11 +94,12 @@ export function QuickAddSheet({
           necessity: null,
           transactionDate: null,
           description,
+          isFixed,
         });
         return { id: result.id, result };
       }
       const result = await createTransaction(
-        { accountId: effectiveAccountId!, categoryId: categoryId!, type: tab, amount, description },
+        { accountId: effectiveAccountId!, categoryId: categoryId!, type: tab, amount, description, isFixed },
         crypto.randomUUID(),
       );
       return { id: result.id, result };
@@ -211,7 +220,7 @@ export function QuickAddSheet({
                   <button
                     key={category.id}
                     type="button"
-                    onClick={() => setCategoryId(category.id)}
+                    onClick={() => selectCategory(category)}
                     className={`rounded-xl px-2 py-2 text-center text-xs ${
                       categoryId === category.id ? "bg-emerald-700 text-ivory-50" : "bg-navy-900 text-slate-300"
                     }`}
@@ -249,6 +258,19 @@ export function QuickAddSheet({
               </div>
             </div>
           </>
+        )}
+
+        {tab !== "TRANSFER" && (
+          <button
+            type="button"
+            onClick={() => setIsFixed((v) => !v)}
+            className={`flex items-center justify-between rounded-xl px-3 py-2 text-sm ${
+              isFixed ? "bg-emerald-700 text-ivory-50" : "bg-navy-900 text-slate-400"
+            }`}
+          >
+            <span>{dictionary.quickAdd.fixedToggleLabel}</span>
+            <span>{isFixed ? "✓" : ""}</span>
+          </button>
         )}
 
         <input

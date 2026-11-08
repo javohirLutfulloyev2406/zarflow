@@ -51,7 +51,7 @@ class TransactionController {
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
         var cmd = new TransactionsService.CreateCommand(
                 request.accountId(), request.categoryId(), request.type(), request.amount(), request.necessity(),
-                request.transactionDate(), request.description(), idempotencyKey);
+                request.transactionDate(), request.description(), idempotencyKey, request.isFixed());
         return toResponse(transactionsService.create(currentUser.requireUserId(), cmd));
     }
 
@@ -59,7 +59,7 @@ class TransactionController {
     TransactionResponse update(@PathVariable UUID id, @Valid @RequestBody UpdateTransactionRequest request) {
         var cmd = new TransactionsService.UpdateCommand(
                 request.accountId(), request.categoryId(), request.amount(), request.necessity(),
-                request.transactionDate(), request.description());
+                request.transactionDate(), request.description(), request.isFixed());
         return toResponse(transactionsService.update(currentUser.requireUserId(), id, cmd));
     }
 
@@ -109,7 +109,7 @@ class TransactionController {
     private TransactionResponse toResponse(TransactionsService.TransactionView view) {
         return new TransactionResponse(
                 view.id(), view.accountId(), view.categoryId(), view.type(), view.amount(), view.currency(),
-                view.necessity(), view.transactionDate(), view.description(), view.transferGroupId());
+                view.necessity(), view.transactionDate(), view.description(), view.transferGroupId(), view.isFixed());
     }
 
     record CreateTransactionRequest(
@@ -119,7 +119,8 @@ class TransactionController {
             @NotNull @DecimalMin(value = "0.00", inclusive = false) @Digits(integer = 12, fraction = 2) BigDecimal amount,
             Necessity necessity,
             Instant transactionDate,
-            @Size(max = 280) String description) {
+            @Size(max = 280) String description,
+            Boolean isFixed) {
     }
 
     record UpdateTransactionRequest(
@@ -128,7 +129,8 @@ class TransactionController {
             @NotNull @DecimalMin(value = "0.00", inclusive = false) @Digits(integer = 12, fraction = 2) BigDecimal amount,
             Necessity necessity,
             Instant transactionDate,
-            @Size(max = 280) String description) {
+            @Size(max = 280) String description,
+            Boolean isFixed) {
     }
 
     record TransferRequest(
@@ -144,7 +146,7 @@ class TransactionController {
 
     record TransactionResponse(
             UUID id, UUID accountId, UUID categoryId, TransactionType type, BigDecimal amount, String currency,
-            Necessity necessity, Instant transactionDate, String description, UUID transferGroupId) {
+            Necessity necessity, Instant transactionDate, String description, UUID transferGroupId, boolean isFixed) {
     }
 
     record TransferResponse(UUID transferGroupId, TransactionResponse fromLeg, TransactionResponse toLeg) {
