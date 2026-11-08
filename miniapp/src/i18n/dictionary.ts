@@ -1,4 +1,4 @@
-import type { AccountType, Language } from "../api/types";
+import type { AccountType, Language, RecurringKind, RecurringSchedule } from "../api/types";
 import { useLanguage } from "./useLanguage";
 
 export interface Dictionary {
@@ -122,6 +122,45 @@ export interface Dictionary {
     limitAmountPlaceholder: string;
     save: string;
     saved: string;
+    autoLabel: string;
+    useManual: string;
+    useAuto: string;
+  };
+  recurring: {
+    sectionTitle: string;
+    addButton: string;
+    emptyState: string;
+    nextDueLabel: (date: string) => string;
+    archived: string;
+    kindLabel: Record<RecurringKind, string>;
+    scheduleLabel: Record<RecurringSchedule, string>;
+    formTitleNew: string;
+    formTitleEdit: string;
+    nameLabel: string;
+    namePlaceholder: string;
+    amountLabel: string;
+    categoryLabel: string;
+    accountLabel: string;
+    scheduleFieldLabel: string;
+    dayOfMonthLabel: string;
+    dayOfWeekLabel: string;
+    everyNDaysLabel: string;
+    startDateLabel: string;
+    autoCreateLabel: string;
+    remindDaysBeforeLabel: string;
+    save: string;
+    archive: string;
+    weekdayShort: string[];
+    upcomingTitle: string;
+    upcomingEmpty: string;
+    dueToday: string;
+    dueTomorrow: string;
+    payButton: string;
+    skipButton: string;
+    statusPaid: string;
+    statusSkipped: string;
+    homeCardTitle: string;
+    homeCardEmpty: string;
   };
   error: {
     generic: string;
@@ -256,6 +295,45 @@ const uz: Dictionary = {
     limitAmountPlaceholder: "Limit",
     save: "Saqlash",
     saved: "Saqlandi",
+    autoLabel: "avtomatik",
+    useManual: "Qo'lda kiritish",
+    useAuto: "Avtomatik hisoblash",
+  },
+  recurring: {
+    sectionTitle: "Doimiy to'lovlar",
+    addButton: "+ Qo'shish",
+    emptyState: "Hali doimiy to'lovlar yo'q.",
+    nextDueLabel: (date) => `Keyingi: ${date}`,
+    archived: "Arxivlangan",
+    kindLabel: { REGULAR: "Doimiy xarajat", LOAN: "Kredit", INCOME: "Daromad" },
+    scheduleLabel: { MONTHLY: "Oylik", WEEKLY: "Haftalik", EVERY_N_DAYS: "N kunda" },
+    formTitleNew: "Yangi doimiy to'lov",
+    formTitleEdit: "To'lovni tahrirlash",
+    nameLabel: "Nomi",
+    namePlaceholder: "Masalan: Ijara",
+    amountLabel: "Summa",
+    categoryLabel: "Kategoriya",
+    accountLabel: "Hisob",
+    scheduleFieldLabel: "Davriylik",
+    dayOfMonthLabel: "Oyning kuni",
+    dayOfWeekLabel: "Hafta kuni",
+    everyNDaysLabel: "Necha kunda",
+    startDateLabel: "Boshlanish sanasi",
+    autoCreateLabel: "Avtomatik yozib qo'yilsin",
+    remindDaysBeforeLabel: "Necha kun oldin eslatish",
+    save: "Saqlash",
+    archive: "Arxivlash",
+    weekdayShort: ["Du", "Se", "Cho", "Pa", "Ju", "Sh", "Ya"],
+    upcomingTitle: "Keyingi 30 kun",
+    upcomingEmpty: "Yaqin 30 kunda to'lovlar yo'q.",
+    dueToday: "Bugun",
+    dueTomorrow: "Ertaga",
+    payButton: "To'landi",
+    skipButton: "O'tkazib yuborish",
+    statusPaid: "To'landi ✓",
+    statusSkipped: "O'tkazib yuborildi",
+    homeCardTitle: "Yaqin 7 kundagi to'lovlar",
+    homeCardEmpty: "Yaqin 7 kunda to'lov yo'q",
   },
   error: {
     generic: "Kutilmagan xatolik yuz berdi. Ilovani qayta ochib ko'ring.",
@@ -390,6 +468,45 @@ const ru: Dictionary = {
     limitAmountPlaceholder: "Лимит",
     save: "Сохранить",
     saved: "Сохранено",
+    autoLabel: "автоматически",
+    useManual: "Ввести вручную",
+    useAuto: "Считать автоматически",
+  },
+  recurring: {
+    sectionTitle: "Постоянные платежи",
+    addButton: "+ Добавить",
+    emptyState: "Постоянных платежей пока нет.",
+    nextDueLabel: (date) => `Следующий: ${date}`,
+    archived: "В архиве",
+    kindLabel: { REGULAR: "Постоянный расход", LOAN: "Кредит", INCOME: "Доход" },
+    scheduleLabel: { MONTHLY: "Ежемесячно", WEEKLY: "Еженедельно", EVERY_N_DAYS: "Каждые N дней" },
+    formTitleNew: "Новый постоянный платёж",
+    formTitleEdit: "Редактировать платёж",
+    nameLabel: "Название",
+    namePlaceholder: "Например: Аренда",
+    amountLabel: "Сумма",
+    categoryLabel: "Категория",
+    accountLabel: "Счёт",
+    scheduleFieldLabel: "Периодичность",
+    dayOfMonthLabel: "День месяца",
+    dayOfWeekLabel: "День недели",
+    everyNDaysLabel: "Каждые сколько дней",
+    startDateLabel: "Дата начала",
+    autoCreateLabel: "Записывать автоматически",
+    remindDaysBeforeLabel: "За сколько дней напомнить",
+    save: "Сохранить",
+    archive: "В архив",
+    weekdayShort: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"],
+    upcomingTitle: "Следующие 30 дней",
+    upcomingEmpty: "В ближайшие 30 дней платежей нет.",
+    dueToday: "Сегодня",
+    dueTomorrow: "Завтра",
+    payButton: "Оплачено",
+    skipButton: "Пропустить",
+    statusPaid: "Оплачено ✓",
+    statusSkipped: "Пропущено",
+    homeCardTitle: "Платежи в ближайшие 7 дней",
+    homeCardEmpty: "В ближайшие 7 дней платежей нет",
   },
   error: {
     generic: "Произошла непредвиденная ошибка. Откройте приложение ещё раз.",

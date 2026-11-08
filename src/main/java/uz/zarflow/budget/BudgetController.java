@@ -54,7 +54,7 @@ class BudgetController {
         Map<UUID, Categories.CategoryView> categoryById = categoryById(userId);
         return budgets.getBudget(userId, month)
                 .map(v -> toBudgetResponse(v, categoryById))
-                .orElseGet(() -> new BudgetResponse(false, month.toString(), null, null, null, null, null, List.of()));
+                .orElseGet(() -> new BudgetResponse(false, month.toString(), null, null, true, null, true, null, null, List.of()));
     }
 
     @PutMapping("/{month}")
@@ -91,7 +91,8 @@ class BudgetController {
 
     private BudgetResponse toBudgetResponse(Budgets.BudgetView view, Map<UUID, Categories.CategoryView> categoryById) {
         return new BudgetResponse(
-                true, view.month().toString(), view.expectedIncome(), view.fixedPayments(), view.loanPayments(),
+                true, view.month().toString(), view.expectedIncome(),
+                view.fixedPayments(), view.fixedPaymentsIsAuto(), view.loanPayments(), view.loanPaymentsIsAuto(),
                 view.plannedSavings(), view.freeBudget(),
                 view.limits().stream().map(l -> toLimitResponse(l, categoryById)).toList());
     }
@@ -110,8 +111,10 @@ class BudgetController {
     }
 
     record BudgetResponse(
-            boolean hasBudget, String month, BigDecimal expectedIncome, BigDecimal fixedPayments,
-            BigDecimal loanPayments, BigDecimal plannedSavings, BigDecimal freeBudget, List<LimitResponse> limits) {
+            boolean hasBudget, String month, BigDecimal expectedIncome,
+            BigDecimal fixedPayments, boolean fixedPaymentsIsAuto,
+            BigDecimal loanPayments, boolean loanPaymentsIsAuto,
+            BigDecimal plannedSavings, BigDecimal freeBudget, List<LimitResponse> limits) {
     }
 
     record TodayResponse(
@@ -126,10 +129,12 @@ class BudgetController {
             @NotNull @DecimalMin(value = "0.00", inclusive = false) @Digits(integer = 12, fraction = 2) BigDecimal amount) {
     }
 
+    /** {@code fixedPayments}/{@code loanPayments} are optional: omitted/null means "auto from
+     * recurring rules"; a value sets a manual override. */
     record UpdateBudgetRequest(
             @NotNull @DecimalMin("0.00") @Digits(integer = 12, fraction = 2) BigDecimal expectedIncome,
-            @NotNull @DecimalMin("0.00") @Digits(integer = 12, fraction = 2) BigDecimal fixedPayments,
-            @NotNull @DecimalMin("0.00") @Digits(integer = 12, fraction = 2) BigDecimal loanPayments,
+            @DecimalMin("0.00") @Digits(integer = 12, fraction = 2) BigDecimal fixedPayments,
+            @DecimalMin("0.00") @Digits(integer = 12, fraction = 2) BigDecimal loanPayments,
             @NotNull @DecimalMin("0.00") @Digits(integer = 12, fraction = 2) BigDecimal plannedSavings,
             @NotNull List<@Valid UpdateLimitRequest> limits) {
     }

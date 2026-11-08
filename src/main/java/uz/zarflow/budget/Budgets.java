@@ -28,7 +28,9 @@ public interface Budgets {
             YearMonth month,
             BigDecimal expectedIncome,
             BigDecimal fixedPayments,
+            boolean fixedPaymentsIsAuto,
             BigDecimal loanPayments,
+            boolean loanPaymentsIsAuto,
             BigDecimal plannedSavings,
             BigDecimal freeBudget,
             List<LimitView> limits) {
@@ -37,6 +39,7 @@ public interface Budgets {
     record LimitUpdate(UUID categoryId, BigDecimal amount) {
     }
 
+    /** {@code null} fixedPayments/loanPayments means "go back to auto from recurring rules". */
     record BudgetUpdate(
             BigDecimal expectedIncome,
             BigDecimal fixedPayments,

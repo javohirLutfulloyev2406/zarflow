@@ -84,6 +84,15 @@ class TransactionsService implements Transactions {
         return toBotTransaction(view);
     }
 
+    @Override
+    @Transactional
+    public BotTransaction createFromRecurring(UUID userId, RecurringCreateInput input) {
+        TransactionView view = createInternal(
+                userId, input.accountId(), input.categoryId(), input.type(), input.amount(),
+                null, null, input.description(), TransactionSource.RECURRING, input.idempotencyKey(), input.isFixed());
+        return toBotTransaction(view);
+    }
+
     private TransactionView createInternal(
             UUID userId, UUID accountId, UUID categoryId, TransactionType type, BigDecimal amount,
             Necessity necessity, Instant requestedDate, String description, TransactionSource source,
@@ -100,10 +109,18 @@ class TransactionsService implements Transactions {
         Instant transactionDate = requestedDate == null ? Instant.now(clock) : requestedDate;
         requireNotFuture(transactionDate);
         accounts.requireOwned(userId, accountId);
-        Categories.CategoryOwnership category = categories.requireUsable(userId, categoryId);
-        requireCategoryMatchesType(type, category.type());
-        Necessity resolvedNecessity = resolveNecessity(type, necessity, category.necessity());
-        boolean isFixed = isFixedOverride != null ? isFixedOverride : category.fixedDefault();
+
+        Necessity resolvedNecessity;
+        boolean isFixed;
+        if (type == TransactionType.DEBT_PAYMENT) {
+            resolvedNecessity = null;
+            isFixed = isFixedOverride != null ? isFixedOverride : false;
+        } else {
+            Categories.CategoryOwnership category = categories.requireUsable(userId, categoryId);
+            requireCategoryMatchesType(type, category.type());
+            resolvedNecessity = resolveNecessity(type, necessity, category.necessity());
+            isFixed = isFixedOverride != null ? isFixedOverride : category.fixedDefault();
+        }
 
         Transaction transaction = new Transaction(
                 userId, accountId, categoryId, type, amount, resolvedNecessity,
@@ -320,8 +337,10 @@ class TransactionsService implements Transactions {
                 .collect(Collectors.toMap(TransactionRepository.TypeTotalRow::getType, TransactionRepository.TypeTotalRow::getTotal));
         BigDecimal monthIncome = monthTotals.getOrDefault(TransactionType.INCOME, BigDecimal.ZERO);
         BigDecimal monthExpense = monthTotals.getOrDefault(TransactionType.EXPENSE, BigDecimal.ZERO);
+        BigDecimal monthDebtPayments = monthTotals.getOrDefault(TransactionType.DEBT_PAYMENT, BigDecimal.ZERO);
 
-        return new TodayAndMonth(todayExpenses, todayTotal, monthIncome, monthExpense, monthIncome.subtract(monthExpense));
+        return new TodayAndMonth(
+                todayExpenses, todayTotal, monthIncome, monthExpense, monthIncome.subtract(monthExpense), monthDebtPayments);
     }
 
     @Override

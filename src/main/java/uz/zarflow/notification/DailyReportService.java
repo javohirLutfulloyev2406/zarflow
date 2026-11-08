@@ -42,9 +42,12 @@ class DailyReportService {
         this.clock = clock;
     }
 
-    /** Called every minute by {@link DailyReportScheduler}, guarded by ShedLock against overlap. */
+    /** Called every minute by {@link DailyReportScheduler}, guarded by ShedLock against overlap.
+     * Public: proxy-based {@code @Transactional} AOP only intercepts public methods -- without
+     * this, {@code markSent} below would silently never persist, and the report would resend
+     * on every tick instead of once a day. */
     @Transactional
-    void runDueReports() {
+    public void runDueReports() {
         for (UserProfiles.UserSummary user : userProfiles.findAllActive()) {
             if (user.telegramId() == null) {
                 continue;
@@ -76,7 +79,7 @@ class DailyReportService {
 
     /** For the local-only "send my report now" dev endpoint — ignores the time-of-day/already-sent gate. */
     @Transactional(readOnly = true)
-    void sendNow(UUID userId) {
+    public void sendNow(UUID userId) {
         UserProfiles.UserSummary user = userProfiles.find(userId).orElseThrow(() -> new NotFoundException("user.not_found"));
         ZoneId zone = user.timezone();
         sendReport(user, zone, LocalDate.now(clock.withZone(zone)));

@@ -288,7 +288,9 @@ export interface BudgetResponse {
   month: string;
   expectedIncome: string | null;
   fixedPayments: string | null;
+  fixedPaymentsIsAuto: boolean;
   loanPayments: string | null;
+  loanPaymentsIsAuto: boolean;
   plannedSavings: string | null;
   freeBudget: string | null;
   limits: BudgetLimitView[];
@@ -315,11 +317,84 @@ export interface UpdateBudgetLimitRequest {
   amount: string;
 }
 
-/** Mirrors BudgetController.UpdateBudgetRequest. */
+/** Mirrors BudgetController.UpdateBudgetRequest. fixedPayments/loanPayments:
+ * null means "auto from recurring rules"; a value sets a manual override. */
 export interface UpdateBudgetRequest {
   expectedIncome: string;
-  fixedPayments: string;
-  loanPayments: string;
+  fixedPayments: string | null;
+  loanPayments: string | null;
   plannedSavings: string;
   limits: UpdateBudgetLimitRequest[];
+}
+
+export type RecurringKind = "REGULAR" | "LOAN" | "INCOME";
+export type RecurringSchedule = "MONTHLY" | "WEEKLY" | "EVERY_N_DAYS";
+export type OccurrenceStatus = "PENDING" | "PAID" | "SKIPPED";
+
+/** Mirrors RecurringController.RuleResponse. */
+export interface RecurringRule {
+  id: string;
+  name: string;
+  kind: RecurringKind;
+  amount: string;
+  categoryId: string | null;
+  accountId: string;
+  schedule: RecurringSchedule;
+  dayOfMonth: number | null;
+  dayOfWeek: number | null;
+  everyNDays: number | null;
+  startDate: string;
+  nextDueDate: string;
+  autoCreate: boolean;
+  remindDaysBefore: number;
+  active: boolean;
+}
+
+/** Mirrors RecurringController.CreateRuleRequest. */
+export interface CreateRecurringRuleRequest {
+  name: string;
+  kind: RecurringKind;
+  amount: string;
+  categoryId: string | null;
+  accountId: string;
+  schedule: RecurringSchedule;
+  dayOfMonth?: number | null;
+  dayOfWeek?: number | null;
+  everyNDays?: number | null;
+  startDate: string;
+  autoCreate: boolean;
+  remindDaysBefore: number;
+}
+
+/** Mirrors RecurringController.UpdateRuleRequest. */
+export interface UpdateRecurringRuleRequest {
+  name: string;
+  amount: string;
+  categoryId: string | null;
+  accountId: string;
+  schedule: RecurringSchedule;
+  dayOfMonth?: number | null;
+  dayOfWeek?: number | null;
+  everyNDays?: number | null;
+  autoCreate: boolean;
+  remindDaysBefore: number;
+}
+
+/** Mirrors RecurringController.UpcomingResponse. */
+export interface UpcomingOccurrence {
+  occurrenceId: string;
+  ruleId: string;
+  ruleName: string;
+  kind: RecurringKind;
+  amount: string;
+  accountId: string;
+  dueDate: string;
+  status: OccurrenceStatus;
+}
+
+/** Mirrors RecurringController.OccurrenceResponse. */
+export interface RecurringOccurrenceResult {
+  occurrenceId: string;
+  status: OccurrenceStatus;
+  transactionId: string | null;
 }

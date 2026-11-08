@@ -55,7 +55,7 @@ interface TransactionRepository extends Repository<Transaction, UUID>, JpaSpecif
     @Query("""
             select t.type as type, coalesce(sum(t.amount), 0) as total
             from Transaction t
-            where t.userId = :userId and t.deletedAt is null and t.type in ('INCOME', 'EXPENSE')
+            where t.userId = :userId and t.deletedAt is null and t.type in ('INCOME', 'EXPENSE', 'DEBT_PAYMENT')
               and t.transactionDate >= :from and t.transactionDate < :to
             group by t.type
             """)
