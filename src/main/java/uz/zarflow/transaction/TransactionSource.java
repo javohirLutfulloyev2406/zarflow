@@ -2,5 +2,6 @@ package uz.zarflow.transaction;
 
 enum TransactionSource {
     BOT,
-    MINI_APP
+    MINI_APP,
+    RECURRING
 }

@@ -22,14 +22,14 @@ interface AccountRepository extends Repository<Account, UUID> {
     boolean existsByUserIdAndIsDefaultTrueAndArchivedAtIsNull(UUID userId);
 
     /**
-     * EXPENSE rows are stored as a positive magnitude but subtract from balance;
-     * INCOME and TRANSFER rows are already signed correctly for a plain add
+     * EXPENSE and DEBT_PAYMENT rows are stored as a positive magnitude but subtract from
+     * balance; INCOME and TRANSFER rows are already signed correctly for a plain add
      * (see V8__transactions.sql).
      */
     @Query(value = """
             SELECT a.id AS id,
                    a.initial_balance + COALESCE(SUM(
-                       CASE WHEN t.type = 'EXPENSE' THEN -t.amount ELSE t.amount END
+                       CASE WHEN t.type IN ('EXPENSE', 'DEBT_PAYMENT') THEN -t.amount ELSE t.amount END
                    ) FILTER (WHERE t.deleted_at IS NULL), 0) AS balance
             FROM accounts a
             LEFT JOIN transactions t ON t.account_id = a.id
@@ -40,7 +40,7 @@ interface AccountRepository extends Repository<Account, UUID> {
 
     @Query(value = """
             SELECT a.initial_balance + COALESCE(SUM(
-                       CASE WHEN t.type = 'EXPENSE' THEN -t.amount ELSE t.amount END
+                       CASE WHEN t.type IN ('EXPENSE', 'DEBT_PAYMENT') THEN -t.amount ELSE t.amount END
                    ) FILTER (WHERE t.deleted_at IS NULL), 0)
             FROM accounts a
             LEFT JOIN transactions t ON t.account_id = a.id

@@ -24,6 +24,11 @@ public interface Transactions {
     /** Idempotent on {@code input.idempotencyKey()} — a replayed Telegram update_id returns the same row. */
     BotTransaction createFromBot(UUID userId, BotCreateInput input);
 
+    /** For the recurring module's pay/auto-create actions. {@code input.categoryId()} must be null
+     * for DEBT_PAYMENT (LOAN rules book straight to the account, no category). Idempotent on
+     * {@code input.idempotencyKey()} -- a double tap on "To'landi" creates exactly one transaction. */
+    BotTransaction createFromRecurring(UUID userId, RecurringCreateInput input);
+
     /** Used by the bot's "Kategoriya" button and the low-confidence category pick. */
     BotTransaction updateCategory(UUID userId, UUID transactionId, UUID categoryId);
 
@@ -60,7 +65,8 @@ public interface Transactions {
             BigDecimal todayTotal,
             BigDecimal monthIncome,
             BigDecimal monthExpense,
-            BigDecimal monthNet) {
+            BigDecimal monthNet,
+            BigDecimal monthDebtPayments) {
     }
 
     record ExpenseLine(
@@ -75,6 +81,11 @@ public interface Transactions {
     record BotTransaction(
             UUID id, UUID accountId, UUID categoryId, TransactionType type, BigDecimal amount,
             String description, Instant transactionDate) {
+    }
+
+    record RecurringCreateInput(
+            UUID accountId, UUID categoryId, TransactionType type, BigDecimal amount, boolean isFixed,
+            String description, String idempotencyKey) {
     }
 
     record PeriodAnalytics(

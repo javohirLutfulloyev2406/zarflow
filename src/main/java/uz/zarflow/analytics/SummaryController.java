@@ -48,7 +48,7 @@ class SummaryController {
 
         return new TodayAndMonthResponse(
                 new TodaySummary(expenses, summary.todayTotal()),
-                new MonthSummary(summary.monthIncome(), summary.monthExpense(), summary.monthNet()),
+                new MonthSummary(summary.monthIncome(), summary.monthExpense(), summary.monthNet(), summary.monthDebtPayments()),
                 balances);
     }
 
@@ -59,7 +59,7 @@ class SummaryController {
     record TodaySummary(List<ExpenseLineResponse> expenses, BigDecimal total) {
     }
 
-    record MonthSummary(BigDecimal income, BigDecimal expense, BigDecimal net) {
+    record MonthSummary(BigDecimal income, BigDecimal expense, BigDecimal net, BigDecimal debtPayments) {
     }
 
     record AccountBalanceResponse(UUID accountId, String accountName, BigDecimal balance) {

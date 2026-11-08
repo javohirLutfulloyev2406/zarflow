@@ -3,8 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 
 import { getTodayBudget } from "../api/budgets";
 import { listCategories } from "../api/categories";
+import { listUpcomingOccurrences } from "../api/recurring";
 import { getTodayAndMonth } from "../api/summary";
-import type { TodayBudgetResponse } from "../api/types";
+import type { TodayBudgetResponse, UpcomingOccurrence } from "../api/types";
+import { todayKey } from "../analytics/month";
 import { SemicircleGauge } from "../budget/SemicircleGauge";
 import { EmptyStateCard } from "../components/EmptyStateCard";
 import { SkeletonCard } from "../components/SkeletonCard";
@@ -22,6 +24,7 @@ export function Home() {
   const { data: categories = [] } = useQuery({ queryKey: ["categories"], queryFn: listCategories });
   const summary = useQuery({ queryKey: ["summary"], queryFn: getTodayAndMonth });
   const budgetToday = useQuery({ queryKey: ["budget", "today"], queryFn: getTodayBudget });
+  const upcoming = useQuery({ queryKey: ["recurring", "upcoming", 7], queryFn: () => listUpcomingOccurrences(7) });
 
   function categoryLabel(categoryId: string | null): string {
     const category = categories.find((c) => c.id === categoryId);
@@ -45,6 +48,8 @@ export function Home() {
       </header>
 
       {budgetToday.data ? <BudgetHeroCard data={budgetToday.data} /> : null}
+
+      {upcoming.data && upcoming.data.length > 0 ? <UpcomingPaymentsCard occurrences={upcoming.data} /> : null}
 
       {summary.isPending ? (
         <>
@@ -110,6 +115,46 @@ export function Home() {
       )}
     </div>
   );
+}
+
+function UpcomingPaymentsCard({ occurrences }: { occurrences: UpcomingOccurrence[] }) {
+  const dictionary = useDictionary();
+  const language = useLanguage();
+  const today = todayKey();
+  const tomorrow = shiftDateKey(today, 1);
+
+  const pending = occurrences
+    .filter((o) => o.status === "PENDING")
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+
+  if (pending.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-2xl bg-navy-800 p-4">
+      <p className="mb-2 text-xs text-slate-400">{dictionary.recurring.homeCardTitle}</p>
+      <div className="flex flex-col gap-2">
+        {pending.map((occurrence) => {
+          const dueSoon = occurrence.dueDate === today || occurrence.dueDate === tomorrow;
+          return (
+            <div key={occurrence.occurrenceId} className="flex items-center justify-between text-sm">
+              <span className={dueSoon ? "text-warn-400" : "text-ivory-50"}>{occurrence.ruleName}</span>
+              <span className={`text-xs ${dueSoon ? "text-warn-400" : "text-slate-400"}`}>
+                {formatMoney(occurrence.amount, language)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function shiftDateKey(dateKey: string, deltaDays: number): string {
+  const date = new Date(`${dateKey}T00:00:00`);
+  date.setDate(date.getDate() + deltaDays);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function BudgetHeroCard({ data }: { data: TodayBudgetResponse }) {

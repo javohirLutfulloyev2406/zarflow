@@ -37,6 +37,7 @@ import uz.zarflow.account.Accounts;
 import uz.zarflow.budget.Budgets;
 import uz.zarflow.category.CategoryType;
 import uz.zarflow.category.Categories;
+import uz.zarflow.recurring.Recurring;
 import uz.zarflow.shared.common.DateRange;
 import uz.zarflow.shared.common.Money;
 import uz.zarflow.shared.common.MoneyFormatter;
@@ -60,6 +61,7 @@ class TelegramUpdateService {
     private final Categories categories;
     private final Transactions transactions;
     private final Budgets budgets;
+    private final Recurring recurring;
     private final UserParsingMemoryRepository parsingMemoryRepository;
     private final TelegramPendingEntryRepository pendingEntryRepository;
     private final TelegramGateway telegramGateway;
@@ -78,6 +80,7 @@ class TelegramUpdateService {
             Categories categories,
             Transactions transactions,
             Budgets budgets,
+            Recurring recurring,
             UserParsingMemoryRepository parsingMemoryRepository,
             TelegramPendingEntryRepository pendingEntryRepository,
             TelegramGateway telegramGateway,
@@ -93,6 +96,7 @@ class TelegramUpdateService {
         this.categories = categories;
         this.transactions = transactions;
         this.budgets = budgets;
+        this.recurring = recurring;
         this.parsingMemoryRepository = parsingMemoryRepository;
         this.pendingEntryRepository = pendingEntryRepository;
         this.telegramGateway = telegramGateway;
@@ -415,6 +419,9 @@ class TelegramUpdateService {
                 case 'N' -> handlePick(userId, locale, chatId, messageId, payload, false);
                 case 'M' -> handlePage(userId, locale, chatId, messageId, payload, false);
                 case 'Z' -> handleDailyReportAck(chatId, messageId, locale);
+                case 'Y' -> handleRecurringPay(userId, locale, chatId, messageId, UUID.fromString(payload));
+                case 'U' -> handleRecurringSkip(userId, locale, chatId, messageId, UUID.fromString(payload));
+                case 'W' -> handleRecurringAck(chatId, messageId, locale);
                 default -> { }
             }
         } catch (IllegalArgumentException ex) {
@@ -424,6 +431,23 @@ class TelegramUpdateService {
 
     private void handleDailyReportAck(long chatId, int messageId, Locale locale) {
         String text = messageSource.getMessage("bot.daily-report-ack", null, locale);
+        telegramGateway.editMessageText(chatId, messageId, text, null);
+    }
+
+    private void handleRecurringPay(UUID userId, Locale locale, long chatId, int messageId, UUID occurrenceId) {
+        recurring.pay(userId, occurrenceId);
+        String text = messageSource.getMessage("bot.recurring-paid", null, locale);
+        telegramGateway.editMessageText(chatId, messageId, text, null);
+    }
+
+    private void handleRecurringSkip(UUID userId, Locale locale, long chatId, int messageId, UUID occurrenceId) {
+        recurring.skip(userId, occurrenceId);
+        String text = messageSource.getMessage("bot.recurring-skipped", null, locale);
+        telegramGateway.editMessageText(chatId, messageId, text, null);
+    }
+
+    private void handleRecurringAck(long chatId, int messageId, Locale locale) {
+        String text = messageSource.getMessage("bot.recurring-ack", null, locale);
         telegramGateway.editMessageText(chatId, messageId, text, null);
     }
 

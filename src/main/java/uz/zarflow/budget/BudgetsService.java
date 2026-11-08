@@ -15,6 +15,8 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import uz.zarflow.recurring.Recurring;
+import uz.zarflow.recurring.RecurringBudgetAutoSum;
 import uz.zarflow.shared.common.Percentages;
 import uz.zarflow.transaction.TransactionType;
 import uz.zarflow.transaction.Transactions;
@@ -26,6 +28,7 @@ class BudgetsService implements Budgets {
     private final BudgetRepository budgetRepository;
     private final BudgetLimitRepository budgetLimitRepository;
     private final Transactions transactions;
+    private final Recurring recurring;
     private final UserProfiles userProfiles;
     private final Clock clock;
 
@@ -33,11 +36,13 @@ class BudgetsService implements Budgets {
             BudgetRepository budgetRepository,
             BudgetLimitRepository budgetLimitRepository,
             Transactions transactions,
+            Recurring recurring,
             UserProfiles userProfiles,
             Clock clock) {
         this.budgetRepository = budgetRepository;
         this.budgetLimitRepository = budgetLimitRepository;
         this.transactions = transactions;
+        this.recurring = recurring;
         this.userProfiles = userProfiles;
         this.clock = clock;
     }
@@ -82,8 +87,11 @@ class BudgetsService implements Budgets {
         List<BudgetCalculator.Entry> calcEntries = entries.stream()
                 .map(e -> new BudgetCalculator.Entry(e.type(), e.amount(), e.isFixed(), e.transactionDate()))
                 .toList();
+        RecurringBudgetAutoSum.Totals autoTotals = recurring.autoSumForMonth(userId, month);
+        BigDecimal resolvedFixed = RecurringBudgetAutoSum.resolve(budget.getFixedPayments(), autoTotals.fixedPayments());
+        BigDecimal resolvedLoan = RecurringBudgetAutoSum.resolve(budget.getLoanPayments(), autoTotals.loanPayments());
         BudgetCalculator.Result result = BudgetCalculator.calculate(new BudgetCalculator.Input(
-                budget.getExpectedIncome(), budget.getFixedPayments(), budget.getLoanPayments(), budget.getPlannedSavings(),
+                budget.getExpectedIncome(), resolvedFixed, resolvedLoan, budget.getPlannedSavings(),
                 calcEntries, zone, Instant.now(clock)));
 
         List<LimitView> limits = limitViews(budget, spentByCategory(entries));
@@ -128,13 +136,19 @@ class BudgetsService implements Budgets {
     }
 
     private BudgetView toView(Budget budget, Map<UUID, BigDecimal> spentByCategory) {
+        YearMonth month = YearMonth.from(budget.getMonth());
+        RecurringBudgetAutoSum.Totals autoTotals = recurring.autoSumForMonth(budget.getUserId(), month);
+        BigDecimal resolvedFixed = RecurringBudgetAutoSum.resolve(budget.getFixedPayments(), autoTotals.fixedPayments());
+        BigDecimal resolvedLoan = RecurringBudgetAutoSum.resolve(budget.getLoanPayments(), autoTotals.loanPayments());
+
         BigDecimal freeBudget = budget.getExpectedIncome()
-                .subtract(budget.getFixedPayments())
-                .subtract(budget.getLoanPayments())
+                .subtract(resolvedFixed)
+                .subtract(resolvedLoan)
                 .subtract(budget.getPlannedSavings());
         return new BudgetView(
-                YearMonth.from(budget.getMonth()), budget.getExpectedIncome(), budget.getFixedPayments(),
-                budget.getLoanPayments(), budget.getPlannedSavings(), freeBudget, limitViews(budget, spentByCategory));
+                month, budget.getExpectedIncome(), resolvedFixed, budget.getFixedPayments() == null,
+                resolvedLoan, budget.getLoanPayments() == null, budget.getPlannedSavings(), freeBudget,
+                limitViews(budget, spentByCategory));
     }
 
     private List<LimitView> limitViews(Budget budget, Map<UUID, BigDecimal> spentByCategory) {

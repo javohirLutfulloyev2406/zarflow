@@ -10,6 +10,7 @@ import { SkeletonCard } from "../components/SkeletonCard";
 import { useDictionary } from "../i18n/dictionary";
 import { useLanguage } from "../i18n/useLanguage";
 import { formatMoney } from "../money/formatMoney";
+import { RecurringSection } from "./RecurringSection";
 
 export function Plan() {
   const dictionary = useDictionary();
@@ -38,6 +39,8 @@ export function Plan() {
       {isPending ? <SkeletonCard label="" /> : null}
       {isError ? <EmptyStateCard>{dictionary.error.generic}</EmptyStateCard> : null}
       {data ? <BudgetForm month={month} initial={data} categories={expenseCategories} /> : null}
+
+      <RecurringSection />
     </div>
   );
 }
@@ -49,7 +52,9 @@ function BudgetForm({ month, initial, categories }: { month: string; initial: Bu
 
   const [expectedIncome, setExpectedIncome] = useState(initial.expectedIncome ?? "");
   const [fixedPayments, setFixedPayments] = useState(initial.fixedPayments ?? "");
+  const [fixedManual, setFixedManual] = useState(!initial.fixedPaymentsIsAuto);
   const [loanPayments, setLoanPayments] = useState(initial.loanPayments ?? "");
+  const [loanManual, setLoanManual] = useState(!initial.loanPaymentsIsAuto);
   const [plannedSavings, setPlannedSavings] = useState(initial.plannedSavings ?? "");
   const [limits, setLimits] = useState<Record<string, string>>(
     Object.fromEntries(initial.limits.map((l) => [l.categoryId, l.amount])),
@@ -63,8 +68,8 @@ function BudgetForm({ month, initial, categories }: { month: string; initial: Bu
     mutationFn: () =>
       updateBudget(month, {
         expectedIncome: toMoneyString(expectedIncome),
-        fixedPayments: toMoneyString(fixedPayments),
-        loanPayments: toMoneyString(loanPayments),
+        fixedPayments: fixedManual ? toMoneyString(fixedPayments) : null,
+        loanPayments: loanManual ? toMoneyString(loanPayments) : null,
         plannedSavings: toMoneyString(plannedSavings),
         limits: Object.entries(limits)
             .filter(([, amount]) => amount.trim() !== "" && numberOf(amount) > 0)
@@ -85,8 +90,20 @@ function BudgetForm({ month, initial, categories }: { month: string; initial: Bu
     <div className="flex flex-col gap-4">
       <div className="rounded-2xl bg-navy-800 p-4">
         <NumberField label={dictionary.budget.expectedIncomeLabel} value={expectedIncome} onChange={setExpectedIncome} />
-        <NumberField label={dictionary.budget.fixedPaymentsLabel} value={fixedPayments} onChange={setFixedPayments} />
-        <NumberField label={dictionary.budget.loanPaymentsLabel} value={loanPayments} onChange={setLoanPayments} />
+        <AutoNumberField
+          label={dictionary.budget.fixedPaymentsLabel}
+          value={fixedPayments}
+          onChange={setFixedPayments}
+          manual={fixedManual}
+          onManualChange={setFixedManual}
+        />
+        <AutoNumberField
+          label={dictionary.budget.loanPaymentsLabel}
+          value={loanPayments}
+          onChange={setLoanPayments}
+          manual={loanManual}
+          onManualChange={setLoanManual}
+        />
         <NumberField label={dictionary.budget.plannedSavingsLabel} value={plannedSavings} onChange={setPlannedSavings} last />
 
         <div className="mt-3 rounded-xl bg-navy-900 p-3 text-center">
@@ -173,6 +190,51 @@ function NumberField({
         placeholder="0"
         className="w-full rounded-lg bg-navy-900 px-3 py-2 text-sm text-ivory-50"
       />
+    </div>
+  );
+}
+
+function AutoNumberField({
+  label,
+  value,
+  onChange,
+  manual,
+  onManualChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  manual: boolean;
+  onManualChange: (manual: boolean) => void;
+}) {
+  const dictionary = useDictionary();
+  return (
+    <div className="mb-3">
+      <div className="mb-1 flex items-center justify-between">
+        <label className="text-xs text-slate-400">{label}</label>
+        <button
+          type="button"
+          onClick={() => onManualChange(!manual)}
+          className="text-xs text-gold-400"
+        >
+          {manual ? dictionary.budget.useAuto : dictionary.budget.useManual}
+        </button>
+      </div>
+      <div className="relative">
+        <input
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          disabled={!manual}
+          inputMode="decimal"
+          placeholder="0"
+          className="w-full rounded-lg bg-navy-900 px-3 py-2 text-sm text-ivory-50 disabled:opacity-60"
+        />
+        {!manual ? (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">
+            {dictionary.budget.autoLabel}
+          </span>
+        ) : null}
+      </div>
     </div>
   );
 }
