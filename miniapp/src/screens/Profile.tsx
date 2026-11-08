@@ -5,9 +5,17 @@ import { EmptyStateCard } from "../components/EmptyStateCard";
 import { SkeletonCard } from "../components/SkeletonCard";
 import { useAuth } from "../auth/AuthProvider";
 import { setAuthState } from "../auth/store";
+import { getHabitSummary } from "../api/habits";
 import { getNotificationSettings, updateNotificationSettings } from "../api/notifications";
 import { ApiError } from "../api/problemDetail";
-import type { Language, NotificationSettings, UpdateSettingsRequest, UserProfile } from "../api/types";
+import type {
+  Achievement,
+  AchievementCode,
+  Language,
+  NotificationSettings,
+  UpdateSettingsRequest,
+  UserProfile,
+} from "../api/types";
 import { getMe, updateDisplayName, updateSettings } from "../api/users";
 import { useDictionary } from "../i18n/dictionary";
 import { useBackButton } from "../telegram/useBackButton";
@@ -172,6 +180,7 @@ function ProfileForm({
       </button>
 
       <DailyReportField />
+      <AchievementsField />
     </div>
   );
 }
@@ -189,19 +198,31 @@ function DailyReportForm({ initial }: { initial: NotificationSettings }) {
   const dictionary = useDictionary();
   const [enabled, setEnabled] = useState(initial.dailyReportEnabled);
   const [time, setTime] = useState(initial.dailyReportTime);
+  const [weeklyReport, setWeeklyReport] = useState(initial.weeklyReport);
+  const [monthlyReport, setMonthlyReport] = useState(initial.monthlyReport);
   const [message, setMessage] = useState<string | null>(null);
 
   const mutation = useMutation({
-    mutationFn: (body: { dailyReportEnabled: boolean; dailyReportTime: string }) => updateNotificationSettings(body),
+    mutationFn: (body: {
+      dailyReportEnabled: boolean;
+      dailyReportTime: string;
+      weeklyReport: boolean;
+      monthlyReport: boolean;
+    }) => updateNotificationSettings(body),
     onSuccess: () => setMessage(dictionary.profile.saved),
     onError: (err: unknown) => {
       setMessage(err instanceof ApiError ? (err.problem.detail ?? dictionary.error.generic) : dictionary.error.generic);
     },
   });
 
-  function save(nextEnabled: boolean, nextTime: string) {
+  function save(nextEnabled: boolean, nextTime: string, nextWeekly: boolean, nextMonthly: boolean) {
     setMessage(null);
-    mutation.mutate({ dailyReportEnabled: nextEnabled, dailyReportTime: nextTime });
+    mutation.mutate({
+      dailyReportEnabled: nextEnabled,
+      dailyReportTime: nextTime,
+      weeklyReport: nextWeekly,
+      monthlyReport: nextMonthly,
+    });
   }
 
   return (
@@ -214,7 +235,7 @@ function DailyReportForm({ initial }: { initial: NotificationSettings }) {
           onClick={() => {
             const next = !enabled;
             setEnabled(next);
-            save(next, time);
+            save(next, time, weeklyReport, monthlyReport);
           }}
           className={`rounded-full px-4 py-1 text-xs ${enabled ? "bg-emerald-700 text-ivory-50" : "bg-navy-900 text-slate-400"}`}
         >
@@ -232,12 +253,82 @@ function DailyReportForm({ initial }: { initial: NotificationSettings }) {
           onChange={(event) => {
             const next = event.target.value;
             setTime(next);
-            save(enabled, next);
+            save(enabled, next, weeklyReport, monthlyReport);
           }}
           className="rounded-lg bg-navy-900 px-3 py-1 text-sm text-ivory-50"
         />
       </div>
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-slate-400">{dictionary.notifications.weeklyReportLabel}</span>
+        <button
+          type="button"
+          onClick={() => {
+            const next = !weeklyReport;
+            setWeeklyReport(next);
+            save(enabled, time, next, monthlyReport);
+          }}
+          className={`rounded-full px-4 py-1 text-xs ${weeklyReport ? "bg-emerald-700 text-ivory-50" : "bg-navy-900 text-slate-400"}`}
+        >
+          {weeklyReport ? "ON" : "OFF"}
+        </button>
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-slate-400">{dictionary.notifications.monthlyReportLabel}</span>
+        <button
+          type="button"
+          onClick={() => {
+            const next = !monthlyReport;
+            setMonthlyReport(next);
+            save(enabled, time, weeklyReport, next);
+          }}
+          className={`rounded-full px-4 py-1 text-xs ${monthlyReport ? "bg-emerald-700 text-ivory-50" : "bg-navy-900 text-slate-400"}`}
+        >
+          {monthlyReport ? "ON" : "OFF"}
+        </button>
+      </div>
       {message ? <p className="text-xs text-success-400">{message}</p> : null}
+    </div>
+  );
+}
+
+function AchievementsField() {
+  const dictionary = useDictionary();
+  const { data } = useQuery({ queryKey: ["habits"], queryFn: getHabitSummary });
+
+  if (!data) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-2xl bg-navy-800 p-4">
+      <p className="mb-3 text-sm font-medium">{dictionary.achievements.title}</p>
+      <div className="grid grid-cols-2 gap-2">
+        {data.achievements.map((achievement) => (
+          <AchievementTile key={achievement.code} achievement={achievement} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AchievementTile({ achievement }: { achievement: Achievement }) {
+  const dictionary = useDictionary();
+  const code: AchievementCode = achievement.code;
+  return (
+    <div
+      className={`flex flex-col gap-1 rounded-xl p-3 text-center ${
+        achievement.unlocked ? "bg-navy-900" : "bg-navy-900 opacity-40"
+      }`}
+    >
+      <span className={`text-2xl ${achievement.unlocked ? "" : "grayscale"}`}>
+        {achievement.unlocked ? "🏆" : "🔒"}
+      </span>
+      <p className={`text-xs font-medium ${achievement.unlocked ? "text-gold-400" : "text-slate-400"}`}>
+        {dictionary.achievements.codeLabel[code]}
+      </p>
+      <p className="text-xs text-slate-400">
+        {achievement.unlocked ? dictionary.achievements.codeDescription[code] : dictionary.achievements.locked}
+      </p>
     </div>
   );
 }

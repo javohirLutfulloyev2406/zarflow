@@ -34,20 +34,25 @@ class NotificationSettingsController {
     @PutMapping
     SettingsResponse update(@Valid @RequestBody UpdateSettingsRequest request) {
         Notifications.SettingsUpdate update = new Notifications.SettingsUpdate(
-                request.dailyReportEnabled(), LocalTime.parse(request.dailyReportTime()));
+                request.dailyReportEnabled(), LocalTime.parse(request.dailyReportTime()),
+                request.weeklyReport(), request.monthlyReport());
         return toResponse(notifications.updateSettings(currentUser.requireUserId(), update));
     }
 
     private SettingsResponse toResponse(Notifications.Settings settings) {
-        return new SettingsResponse(settings.dailyReportEnabled(), settings.dailyReportTime().toString());
+        return new SettingsResponse(
+                settings.dailyReportEnabled(), settings.dailyReportTime().toString(),
+                settings.weeklyReport(), settings.monthlyReport());
     }
 
-    record SettingsResponse(boolean dailyReportEnabled, String dailyReportTime) {
+    record SettingsResponse(boolean dailyReportEnabled, String dailyReportTime, boolean weeklyReport, boolean monthlyReport) {
     }
 
     record UpdateSettingsRequest(
             @NotNull Boolean dailyReportEnabled,
-            @NotNull @Pattern(regexp = "^([01]\\d|2[0-3]):[0-5]\\d$") String dailyReportTime) {
+            @NotNull @Pattern(regexp = "^([01]\\d|2[0-3]):[0-5]\\d$") String dailyReportTime,
+            @NotNull Boolean weeklyReport,
+            @NotNull Boolean monthlyReport) {
     }
 
 }

@@ -263,12 +263,16 @@ export interface AnalyticsDayResponse {
 export interface NotificationSettings {
   dailyReportEnabled: boolean;
   dailyReportTime: string;
+  weeklyReport: boolean;
+  monthlyReport: boolean;
 }
 
 /** Mirrors NotificationSettingsController.UpdateSettingsRequest. */
 export interface UpdateNotificationSettingsRequest {
   dailyReportEnabled: boolean;
   dailyReportTime: string;
+  weeklyReport: boolean;
+  monthlyReport: boolean;
 }
 
 /** Mirrors BudgetController.LimitResponse. */
@@ -397,4 +401,33 @@ export interface RecurringOccurrenceResult {
   occurrenceId: string;
   status: OccurrenceStatus;
   transactionId: string | null;
+}
+
+export type InsightCode = "CATEGORY_UP_WEEK" | "BUDGET_80" | "FORECAST_OVER" | "DEBT_SHARE" | "DISCRETIONARY_DOWN" | "NO_ENTRIES_3_DAYS";
+
+/** Mirrors InsightController.InsightResponse. */
+export interface Insight {
+  id: string;
+  code: InsightCode;
+  icon: string;
+  text: string;
+  actionable: boolean;
+  createdAt: string;
+}
+
+export type AchievementCode = "STREAK_7" | "STREAK_30" | "LIMIT_WEEK" | "FULL_MONTH";
+
+/** Mirrors HabitController.AchievementResponse. */
+export interface Achievement {
+  code: AchievementCode;
+  unlocked: boolean;
+  achievedAt: string | null;
+}
+
+/** Mirrors HabitController.HabitSummaryResponse. */
+export interface HabitSummary {
+  currentStreak: number;
+  bestStreak: number;
+  daysWithinLimitThisMonth: number;
+  achievements: Achievement[];
 }

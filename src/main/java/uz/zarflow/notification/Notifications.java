@@ -15,10 +15,12 @@ public interface Notifications {
 
     Settings updateSettings(UUID userId, SettingsUpdate update);
 
-    record Settings(boolean dailyReportEnabled, LocalTime dailyReportTime) {
+    record Settings(
+            boolean dailyReportEnabled, LocalTime dailyReportTime, boolean weeklyReport, boolean monthlyReport) {
     }
 
-    record SettingsUpdate(boolean dailyReportEnabled, LocalTime dailyReportTime) {
+    record SettingsUpdate(
+            boolean dailyReportEnabled, LocalTime dailyReportTime, boolean weeklyReport, boolean monthlyReport) {
     }
 
 }

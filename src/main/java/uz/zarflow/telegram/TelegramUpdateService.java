@@ -2,6 +2,7 @@ package uz.zarflow.telegram;
 
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -37,6 +38,7 @@ import uz.zarflow.account.Accounts;
 import uz.zarflow.budget.Budgets;
 import uz.zarflow.category.CategoryType;
 import uz.zarflow.category.Categories;
+import uz.zarflow.habit.Habits;
 import uz.zarflow.recurring.Recurring;
 import uz.zarflow.shared.common.DateRange;
 import uz.zarflow.shared.common.Money;
@@ -62,6 +64,7 @@ class TelegramUpdateService {
     private final Transactions transactions;
     private final Budgets budgets;
     private final Recurring recurring;
+    private final Habits habits;
     private final UserParsingMemoryRepository parsingMemoryRepository;
     private final TelegramPendingEntryRepository pendingEntryRepository;
     private final TelegramGateway telegramGateway;
@@ -81,6 +84,7 @@ class TelegramUpdateService {
             Transactions transactions,
             Budgets budgets,
             Recurring recurring,
+            Habits habits,
             UserParsingMemoryRepository parsingMemoryRepository,
             TelegramPendingEntryRepository pendingEntryRepository,
             TelegramGateway telegramGateway,
@@ -97,6 +101,7 @@ class TelegramUpdateService {
         this.transactions = transactions;
         this.budgets = budgets;
         this.recurring = recurring;
+        this.habits = habits;
         this.parsingMemoryRepository = parsingMemoryRepository;
         this.pendingEntryRepository = pendingEntryRepository;
         this.telegramGateway = telegramGateway;
@@ -418,7 +423,7 @@ class TelegramUpdateService {
                 case 'O' -> handlePage(userId, locale, chatId, messageId, payload, true);
                 case 'N' -> handlePick(userId, locale, chatId, messageId, payload, false);
                 case 'M' -> handlePage(userId, locale, chatId, messageId, payload, false);
-                case 'Z' -> handleDailyReportAck(chatId, messageId, locale);
+                case 'Z' -> handleDailyReportAck(userId, locale, chatId, messageId);
                 case 'Y' -> handleRecurringPay(userId, locale, chatId, messageId, UUID.fromString(payload));
                 case 'U' -> handleRecurringSkip(userId, locale, chatId, messageId, UUID.fromString(payload));
                 case 'W' -> handleRecurringAck(chatId, messageId, locale);
@@ -429,7 +434,9 @@ class TelegramUpdateService {
         }
     }
 
-    private void handleDailyReportAck(long chatId, int messageId, Locale locale) {
+    private void handleDailyReportAck(UUID userId, Locale locale, long chatId, int messageId) {
+        ZoneId zone = userProfiles.zoneOf(userId);
+        habits.markNoSpend(userId, LocalDate.now(clock.withZone(zone)));
         String text = messageSource.getMessage("bot.daily-report-ack", null, locale);
         telegramGateway.editMessageText(chatId, messageId, text, null);
     }

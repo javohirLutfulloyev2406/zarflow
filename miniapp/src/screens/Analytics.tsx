@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import { getAnalyticsMonth } from "../api/analytics";
-import type { AnalyticsCategoryBreakdown, AnalyticsMonthResponse, Language } from "../api/types";
+import { dismissInsight, listInsights } from "../api/insights";
+import type { AnalyticsCategoryBreakdown, AnalyticsMonthResponse, Insight, InsightCode, Language } from "../api/types";
 import { DISCRETIONARY_COLOR, ESSENTIAL_COLOR, FALLBACK_CATEGORY_COLOR } from "../analytics/colors";
 import { currentMonthKey, monthLabel, shiftMonth } from "../analytics/month";
 import { EmptyStateCard } from "../components/EmptyStateCard";
@@ -75,6 +76,79 @@ export function Analytics() {
           <CategoryList data={data} language={language} onSelect={goToCategory} />
         </>
       ) : null}
+
+      <InsightsSection />
+    </div>
+  );
+}
+
+const WEEK_SCOPED_CODES: InsightCode[] = ["CATEGORY_UP_WEEK"];
+
+function InsightsSection() {
+  const dictionary = useDictionary();
+  const [period, setPeriod] = useState<"week" | "month">("month");
+  const { data = [] } = useQuery({ queryKey: ["insights"], queryFn: listInsights });
+
+  const filtered = data.filter((insight) =>
+    period === "week" ? WEEK_SCOPED_CODES.includes(insight.code) : !WEEK_SCOPED_CODES.includes(insight.code),
+  );
+
+  return (
+    <div className="rounded-2xl bg-navy-800 p-4">
+      <div className="mb-1 flex items-center justify-between">
+        <p className="text-sm font-medium">{dictionary.insights.sectionTitle}</p>
+        <div className="flex gap-1">
+          {(["week", "month"] as const).map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setPeriod(p)}
+              className={`rounded-full px-3 py-1 text-xs ${
+                period === p ? "bg-emerald-700 text-ivory-50" : "bg-navy-900 text-slate-400"
+              }`}
+            >
+              {p === "week" ? dictionary.insights.periodWeek : dictionary.insights.periodMonth}
+            </button>
+          ))}
+        </div>
+      </div>
+      <p className="mb-3 text-xs text-slate-400">{dictionary.insights.comparedToPreviousPeriod}</p>
+
+      {filtered.length === 0 ? (
+        <p className="text-xs text-slate-400">{dictionary.insights.empty}</p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {filtered.map((insight) => (
+            <InsightRow key={insight.id} insight={insight} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InsightRow({ insight }: { insight: Insight }) {
+  const dictionary = useDictionary();
+  const queryClient = useQueryClient();
+
+  const dismissMutation = useMutation({
+    mutationFn: () => dismissInsight(insight.id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["insights"] }),
+  });
+
+  return (
+    <div className="flex items-start gap-3 rounded-xl bg-navy-900 p-3">
+      <span className="text-lg">{insight.icon}</span>
+      <p className="flex-1 text-sm text-ivory-50">{insight.text}</p>
+      <button
+        type="button"
+        onClick={() => dismissMutation.mutate()}
+        disabled={dismissMutation.isPending}
+        aria-label={dictionary.insights.dismissLabel}
+        className="text-slate-400 disabled:opacity-50"
+      >
+        ✕
+      </button>
     </div>
   );
 }

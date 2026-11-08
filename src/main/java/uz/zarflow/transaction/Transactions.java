@@ -7,6 +7,7 @@ import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import uz.zarflow.category.Necessity;
@@ -59,6 +60,15 @@ public interface Transactions {
     /** Raw income/expense rows (no transfers, no soft-deletes) for a local month — the budget module's own
      * raw material; it does its own is_fixed / before-today / per-category filtering from these. */
     List<MonthEntry> monthEntries(UUID userId, ZoneId zone, YearMonth month);
+
+    /** Distinct local dates with at least one income/expense transaction in the range —
+     * the habit module's raw material for "does this day count" toward a streak. */
+    Set<LocalDate> activeDates(UUID userId, ZoneId zone, LocalDate from, LocalDate toInclusive);
+
+    /** This local month's DEBT_PAYMENT total — deliberately NOT part of {@link #monthEntries},
+     * which excludes it (loan principal is never an expense); callers that specifically need
+     * the debt figure itself (insight/report modules) go through here instead. */
+    BigDecimal monthDebtPayments(UUID userId, ZoneId zone, YearMonth month);
 
     record TodayAndMonth(
             List<ExpenseLine> todayExpenses,

@@ -12,6 +12,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -410,6 +411,27 @@ class TransactionsService implements Transactions {
         return transactionRepository.findIncomeAndExpenseInRange(userId, range.startInclusive(), range.endExclusive()).stream()
                 .map(t -> new MonthEntry(t.getType(), t.getAmount(), t.isFixed(), t.getCategoryId(), t.getTransactionDate()))
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BigDecimal monthDebtPayments(UUID userId, ZoneId zone, YearMonth month) {
+        DateRange.InstantRange range = DateRange.ofMonth(month).toInstantRange(zone);
+        return transactionRepository.sumByTypeInRange(userId, range.startInclusive(), range.endExclusive()).stream()
+                .filter(row -> row.getType() == TransactionType.DEBT_PAYMENT)
+                .map(TransactionRepository.TypeTotalRow::getTotal)
+                .findFirst()
+                .orElse(BigDecimal.ZERO);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Set<LocalDate> activeDates(UUID userId, ZoneId zone, LocalDate from, LocalDate toInclusive) {
+        DateRange.InstantRange range = DateRange.custom(from, toInclusive).toInstantRange(zone);
+        return transactionRepository.findIncomeAndExpenseInRange(userId, range.startInclusive(), range.endExclusive())
+                .stream()
+                .map(t -> t.getTransactionDate().atZone(zone).toLocalDate())
+                .collect(Collectors.toSet());
     }
 
     private List<Transaction> findInLocalDay(UUID userId, ZoneId zone, LocalDate date) {
