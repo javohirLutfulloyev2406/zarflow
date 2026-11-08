@@ -94,6 +94,15 @@ class TransactionsService implements Transactions {
         return toBotTransaction(view);
     }
 
+    @Override
+    @Transactional
+    public BotTransaction createFromDebtPayment(UUID userId, DebtPaymentCreateInput input) {
+        TransactionView view = createInternal(
+                userId, input.accountId(), null, TransactionType.DEBT_PAYMENT, input.amount(),
+                null, null, input.description(), TransactionSource.MINI_APP, input.idempotencyKey(), false);
+        return toBotTransaction(view);
+    }
+
     private TransactionView createInternal(
             UUID userId, UUID accountId, UUID categoryId, TransactionType type, BigDecimal amount,
             Necessity necessity, Instant requestedDate, String description, TransactionSource source,

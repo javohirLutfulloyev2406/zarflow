@@ -1,4 +1,12 @@
-import type { AccountType, AchievementCode, Language, RecurringKind, RecurringSchedule } from "../api/types";
+import type {
+  AccountType,
+  AchievementCode,
+  DebtInterestMethod,
+  DebtType,
+  Language,
+  RecurringKind,
+  RecurringSchedule,
+} from "../api/types";
 import { useLanguage } from "./useLanguage";
 
 export interface Dictionary {
@@ -178,6 +186,58 @@ export interface Dictionary {
     statusSkipped: string;
     homeCardTitle: string;
     homeCardEmpty: string;
+  };
+  debts: {
+    sectionTitle: string;
+    addButton: string;
+    emptyState: string;
+    typeLabel: Record<DebtType, string>;
+    interestMethodLabel: Record<DebtInterestMethod, string>;
+    formTitleNew: string;
+    formTitleEdit: string;
+    nameLabel: string;
+    namePlaceholder: string;
+    lenderLabel: string;
+    typeFieldLabel: string;
+    originalAmountLabel: string;
+    annualRateLabel: string;
+    startDateLabel: string;
+    termMonthsLabel: string;
+    paymentDayLabel: string;
+    interestMethodFieldLabel: string;
+    save: string;
+    manualScheduleButton: string;
+    manualScheduleTitle: string;
+    manualScheduleAddRow: string;
+    estimatedLabel: string;
+    outstandingLabel: string;
+    paidPercentLabel: string;
+    monthlyPaymentLabel: string;
+    monthsLeftLabel: string;
+    closeDateLabel: string;
+    nextPaymentTitle: string;
+    noNextPayment: string;
+    payButton: string;
+    payExtraToggle: string;
+    payAmountLabel: string;
+    payDateLabel: string;
+    payAccountLabel: string;
+    simulatorTitle: string;
+    simulatorCustomPlaceholder: string;
+    simulatorResultSaved: (months: number, amount: string) => string;
+    simulatorResultNone: string;
+    historyTitle: string;
+    historyEmpty: string;
+    strategyTitle: string;
+    strategyAvalanche: string;
+    strategySnowball: string;
+    strategyRecommended: string;
+    strategyInterestLabel: string;
+    strategyCloseDateLabel: string;
+    closedBadge: string;
+    activeBadge: string;
+    homeCardTitle: string;
+    debtClosedCelebration: string;
   };
   error: {
     generic: string;
@@ -379,6 +439,67 @@ const uz: Dictionary = {
     homeCardTitle: "Yaqin 7 kundagi to'lovlar",
     homeCardEmpty: "Yaqin 7 kunda to'lov yo'q",
   },
+  debts: {
+    sectionTitle: "Kreditlar",
+    addButton: "+ Qo'shish",
+    emptyState: "Hali qarzlar yo'q.",
+    typeLabel: {
+      BANK_LOAN: "Bank krediti",
+      INSTALLMENT: "Rassrochka",
+      CREDIT_CARD: "Kredit karta",
+      PERSONAL_DEBT: "Shaxsiy qarz",
+      OTHER: "Boshqa",
+    },
+    interestMethodLabel: {
+      ANNUITY_MONTHLY: "Annuitet (oylik)",
+      ACTUAL_365: "Kundalik hisob (365)",
+    },
+    formTitleNew: "Yangi kredit",
+    formTitleEdit: "Kreditni tahrirlash",
+    nameLabel: "Nomi",
+    namePlaceholder: "Masalan: Avtokredit",
+    lenderLabel: "Bank / beruvchi",
+    typeFieldLabel: "Turi",
+    originalAmountLabel: "Summa",
+    annualRateLabel: "Yillik foiz stavkasi (%)",
+    startDateLabel: "Boshlanish sanasi",
+    termMonthsLabel: "Muddati (oy)",
+    paymentDayLabel: "To'lov kuni",
+    interestMethodFieldLabel: "Foiz hisoblash usuli",
+    save: "Saqlash",
+    manualScheduleButton: "Bank jadvalini kiritish",
+    manualScheduleTitle: "Jadvalni qo'lda kiriting",
+    manualScheduleAddRow: "+ Qator qo'shish",
+    estimatedLabel: "taxminiy",
+    outstandingLabel: "Qoldiq",
+    paidPercentLabel: "To'langan",
+    monthlyPaymentLabel: "Oylik to'lov",
+    monthsLeftLabel: "Qolgan oy",
+    closeDateLabel: "Yopilish sanasi",
+    nextPaymentTitle: "Keyingi to'lov",
+    noNextPayment: "Rejalashtirilgan to'lov yo'q",
+    payButton: "To'landi",
+    payExtraToggle: "Qo'shimcha to'lov (hammasi asosiy qarzga)",
+    payAmountLabel: "Summa",
+    payDateLabel: "Sana",
+    payAccountLabel: "Hisob",
+    simulatorTitle: "Tezroq yopish",
+    simulatorCustomPlaceholder: "Boshqa summa",
+    simulatorResultSaved: (months, amount) => `${months} oy tezroq, ${amount} tejaladi`,
+    simulatorResultNone: "Qo'shimcha summani tanlang",
+    historyTitle: "To'lovlar tarixi",
+    historyEmpty: "Hali to'lovlar yo'q.",
+    strategyTitle: "Qaysi strategiya yaxshiroq?",
+    strategyAvalanche: "Avalanche (yuqori foizdan)",
+    strategySnowball: "Snowball (kichik qoldiqdan)",
+    strategyRecommended: "Tavsiya etiladi",
+    strategyInterestLabel: "Jami foiz",
+    strategyCloseDateLabel: "Yopilish sanasi",
+    closedBadge: "Yopilgan",
+    activeBadge: "Faol",
+    homeCardTitle: "Qarzlar",
+    debtClosedCelebration: "🎉 Qarz to'liq yopildi!",
+  },
   error: {
     generic: "Kutilmagan xatolik yuz berdi. Ilovani qayta ochib ko'ring.",
     retry: "Qayta urinish",
@@ -578,6 +699,67 @@ const ru: Dictionary = {
     statusSkipped: "Пропущено",
     homeCardTitle: "Платежи в ближайшие 7 дней",
     homeCardEmpty: "В ближайшие 7 дней платежей нет",
+  },
+  debts: {
+    sectionTitle: "Кредиты",
+    addButton: "+ Добавить",
+    emptyState: "Пока нет долгов.",
+    typeLabel: {
+      BANK_LOAN: "Банковский кредит",
+      INSTALLMENT: "Рассрочка",
+      CREDIT_CARD: "Кредитная карта",
+      PERSONAL_DEBT: "Личный долг",
+      OTHER: "Другое",
+    },
+    interestMethodLabel: {
+      ANNUITY_MONTHLY: "Аннуитет (ежемесячно)",
+      ACTUAL_365: "По факту дней (365)",
+    },
+    formTitleNew: "Новый кредит",
+    formTitleEdit: "Редактировать кредит",
+    nameLabel: "Название",
+    namePlaceholder: "Например: Автокредит",
+    lenderLabel: "Банк / кредитор",
+    typeFieldLabel: "Тип",
+    originalAmountLabel: "Сумма",
+    annualRateLabel: "Годовая ставка (%)",
+    startDateLabel: "Дата начала",
+    termMonthsLabel: "Срок (мес.)",
+    paymentDayLabel: "День платежа",
+    interestMethodFieldLabel: "Способ расчёта процентов",
+    save: "Сохранить",
+    manualScheduleButton: "Ввести график банка",
+    manualScheduleTitle: "Ввести график вручную",
+    manualScheduleAddRow: "+ Добавить строку",
+    estimatedLabel: "примерно",
+    outstandingLabel: "Остаток",
+    paidPercentLabel: "Погашено",
+    monthlyPaymentLabel: "Ежемесячный платёж",
+    monthsLeftLabel: "Осталось месяцев",
+    closeDateLabel: "Дата погашения",
+    nextPaymentTitle: "Следующий платёж",
+    noNextPayment: "Нет запланированного платежа",
+    payButton: "Оплачено",
+    payExtraToggle: "Досрочное погашение (всё в основной долг)",
+    payAmountLabel: "Сумма",
+    payDateLabel: "Дата",
+    payAccountLabel: "Счёт",
+    simulatorTitle: "Погасить быстрее",
+    simulatorCustomPlaceholder: "Другая сумма",
+    simulatorResultSaved: (months, amount) => `На ${months} мес. раньше, экономия ${amount}`,
+    simulatorResultNone: "Выберите дополнительную сумму",
+    historyTitle: "История платежей",
+    historyEmpty: "Платежей пока нет.",
+    strategyTitle: "Какая стратегия лучше?",
+    strategyAvalanche: "Avalanche (с высокой ставки)",
+    strategySnowball: "Snowball (с малого остатка)",
+    strategyRecommended: "Рекомендуется",
+    strategyInterestLabel: "Всего процентов",
+    strategyCloseDateLabel: "Дата погашения",
+    closedBadge: "Закрыт",
+    activeBadge: "Активен",
+    homeCardTitle: "Долги",
+    debtClosedCelebration: "🎉 Долг полностью погашен!",
   },
   error: {
     generic: "Произошла непредвиденная ошибка. Откройте приложение ещё раз.",

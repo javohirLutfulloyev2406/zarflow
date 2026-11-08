@@ -38,11 +38,14 @@ import uz.zarflow.account.Accounts;
 import uz.zarflow.budget.Budgets;
 import uz.zarflow.category.CategoryType;
 import uz.zarflow.category.Categories;
+import uz.zarflow.debt.DebtStatus;
+import uz.zarflow.debt.Debts;
 import uz.zarflow.habit.Habits;
 import uz.zarflow.recurring.Recurring;
 import uz.zarflow.shared.common.DateRange;
 import uz.zarflow.shared.common.Money;
 import uz.zarflow.shared.common.MoneyFormatter;
+import uz.zarflow.shared.common.MonthNames;
 import uz.zarflow.shared.common.Percentages;
 import uz.zarflow.transaction.TransactionType;
 import uz.zarflow.transaction.Transactions;
@@ -64,6 +67,7 @@ class TelegramUpdateService {
     private final Transactions transactions;
     private final Budgets budgets;
     private final Recurring recurring;
+    private final Debts debts;
     private final Habits habits;
     private final UserParsingMemoryRepository parsingMemoryRepository;
     private final TelegramPendingEntryRepository pendingEntryRepository;
@@ -84,6 +88,7 @@ class TelegramUpdateService {
             Transactions transactions,
             Budgets budgets,
             Recurring recurring,
+            Debts debts,
             Habits habits,
             UserParsingMemoryRepository parsingMemoryRepository,
             TelegramPendingEntryRepository pendingEntryRepository,
@@ -101,6 +106,7 @@ class TelegramUpdateService {
         this.transactions = transactions;
         this.budgets = budgets;
         this.recurring = recurring;
+        this.debts = debts;
         this.habits = habits;
         this.parsingMemoryRepository = parsingMemoryRepository;
         this.pendingEntryRepository = pendingEntryRepository;
@@ -161,6 +167,7 @@ class TelegramUpdateService {
             case "/undo" -> runOnboarded(chatId, userId, locale, () -> handleUndo(chatId, userId, locale));
             case "/week" -> runOnboarded(chatId, userId, locale, () -> handleWeek(chatId, userId, locale));
             case "/month" -> runOnboarded(chatId, userId, locale, () -> handleMonth(chatId, userId, locale));
+            case "/debt" -> runOnboarded(chatId, userId, locale, () -> handleDebtList(chatId, userId, locale));
             default -> runOnboarded(chatId, userId, locale,
                     () -> handleQuickInput(message.getText(), update.getUpdateId(), chatId, userId, locale));
         }
@@ -194,7 +201,7 @@ class TelegramUpdateService {
             lineIndex++;
             if (mentionsCredit(line)) {
                 anyHandled = true;
-                reply(chatId, locale, "bot.quick-input-credit-mention");
+                handleDebtQuickInput(line, chatId, userId, locale);
                 continue;
             }
             if (parserCategories == null) {
@@ -222,6 +229,87 @@ class TelegramUpdateService {
     private boolean mentionsCredit(String line) {
         String normalized = line.toLowerCase(Locale.ROOT);
         return normalized.contains("kredit") || normalized.contains("кредит");
+    }
+
+    // ---- debt quick input / commands (PRD M8) ----
+
+    private void handleDebtQuickInput(String line, long chatId, UUID userId, Locale locale) {
+        Optional<QuickInputParser.ParsedLine> parsed = parser.parseLine(line, List.of(), Map.of());
+        if (parsed.isEmpty()) {
+            reply(chatId, locale, "bot.quick-input-credit-mention");
+            return;
+        }
+        BigDecimal amount = parsed.get().amount();
+        List<Debts.DebtView> active = debts.listForUser(userId).stream()
+                .filter(d -> d.status() == DebtStatus.ACTIVE)
+                .toList();
+        if (active.isEmpty()) {
+            reply(chatId, locale, "bot.debt-none-active");
+            return;
+        }
+
+        if (active.size() == 1) {
+            Debts.DebtView debt = active.get(0);
+            String text = messageSource.getMessage(
+                    "bot.debt-confirm", new Object[]{moneyFormatter.format(Money.of(amount), locale), debt.name()}, locale);
+            InlineKeyboardButton button = InlineKeyboardButton.builder()
+                    .text(messageSource.getMessage("bot.debt-button-confirm", null, locale))
+                    .callbackData("D" + debt.id() + ":" + amount.toPlainString())
+                    .build();
+            sendSafely(chatId, text, new InlineKeyboardMarkup(List.of(new InlineKeyboardRow(button))), "bot.debt-confirm");
+            return;
+        }
+
+        List<InlineKeyboardRow> rows = active.stream()
+                .map(debt -> new InlineKeyboardRow(InlineKeyboardButton.builder()
+                        .text(debt.name())
+                        .callbackData("D" + debt.id() + ":" + amount.toPlainString())
+                        .build()))
+                .toList();
+        sendSafely(chatId, messageSource.getMessage("bot.debt-choose", null, locale), new InlineKeyboardMarkup(rows), "bot.debt-choose");
+    }
+
+    private void handleDebtPay(UUID userId, Locale locale, long chatId, int messageId, String payload) {
+        int separator = payload.indexOf(':');
+        UUID debtId = UUID.fromString(payload.substring(0, separator));
+        BigDecimal amount = new BigDecimal(payload.substring(separator + 1));
+
+        List<Accounts.AccountView> userAccountViews = accounts.listForUser(userId);
+        UUID accountId = defaultAccountId(userAccountViews);
+        if (accountId == null) {
+            return;
+        }
+        LocalDate today = LocalDate.now(clock.withZone(userProfiles.zoneOf(userId)));
+        Debts.DebtView debt = debts.get(userId, debtId);
+        debts.pay(userId, debtId, new Debts.PayInput(amount, today, accountId, false));
+
+        String text = messageSource.getMessage(
+                "bot.debt-paid", new Object[]{moneyFormatter.format(Money.of(amount), locale), debt.name()}, locale);
+        telegramGateway.editMessageText(chatId, messageId, text, null);
+    }
+
+    private void handleDebtList(long chatId, UUID userId, Locale locale) {
+        List<Debts.DebtView> active = debts.listForUser(userId).stream()
+                .filter(d -> d.status() == DebtStatus.ACTIVE)
+                .toList();
+        if (active.isEmpty()) {
+            reply(chatId, locale, "bot.debt-list-empty");
+            return;
+        }
+
+        StringBuilder sb = new StringBuilder(messageSource.getMessage("bot.debt-list-header", null, locale));
+        for (Debts.DebtView debt : active) {
+            Debts.ProgressView progress = debts.progress(userId, debt.id());
+            List<Debts.ScheduleRowView> schedule = debts.listSchedule(userId, debt.id());
+            Debts.ScheduleRowView nextRow = schedule.stream().filter(r -> !r.paid()).findFirst().orElse(null);
+            String nextDate = nextRow == null ? "—" : MonthNames.dayAndMonth(nextRow.dueDate(), locale);
+            String nextAmount = nextRow == null ? "—"
+                    : moneyFormatter.format(Money.of(nextRow.principal().add(nextRow.interest()).add(nextRow.fee())), locale);
+            sb.append('\n').append(messageSource.getMessage("bot.debt-list-line", new Object[]{
+                    debt.name(), moneyFormatter.format(Money.of(debt.outstandingPrincipal()), locale),
+                    progress.paidPercent(), nextDate, nextAmount}, locale));
+        }
+        sendSafely(chatId, sb.toString(), null, "bot.debt-list-line");
     }
 
     private void handleParsedLine(
@@ -427,6 +515,7 @@ class TelegramUpdateService {
                 case 'Y' -> handleRecurringPay(userId, locale, chatId, messageId, UUID.fromString(payload));
                 case 'U' -> handleRecurringSkip(userId, locale, chatId, messageId, UUID.fromString(payload));
                 case 'W' -> handleRecurringAck(chatId, messageId, locale);
+                case 'D' -> handleDebtPay(userId, locale, chatId, messageId, payload);
                 default -> { }
             }
         } catch (IllegalArgumentException ex) {
