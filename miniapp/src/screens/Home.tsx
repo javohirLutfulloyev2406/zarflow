@@ -1,8 +1,11 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
+import { getTodayBudget } from "../api/budgets";
 import { listCategories } from "../api/categories";
 import { getTodayAndMonth } from "../api/summary";
+import type { TodayBudgetResponse } from "../api/types";
+import { SemicircleGauge } from "../budget/SemicircleGauge";
 import { EmptyStateCard } from "../components/EmptyStateCard";
 import { SkeletonCard } from "../components/SkeletonCard";
 import { useAuth } from "../auth/AuthProvider";
@@ -18,6 +21,7 @@ export function Home() {
 
   const { data: categories = [] } = useQuery({ queryKey: ["categories"], queryFn: listCategories });
   const summary = useQuery({ queryKey: ["summary"], queryFn: getTodayAndMonth });
+  const budgetToday = useQuery({ queryKey: ["budget", "today"], queryFn: getTodayBudget });
 
   function categoryLabel(categoryId: string | null): string {
     const category = categories.find((c) => c.id === categoryId);
@@ -39,6 +43,8 @@ export function Home() {
           </span>
         </Link>
       </header>
+
+      {budgetToday.data ? <BudgetHeroCard data={budgetToday.data} /> : null}
 
       {summary.isPending ? (
         <>
@@ -102,6 +108,65 @@ export function Home() {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+function BudgetHeroCard({ data }: { data: TodayBudgetResponse }) {
+  const dictionary = useDictionary();
+  const language = useLanguage();
+
+  if (!data.hasBudget) {
+    return (
+      <Link to="/plan" className="block rounded-2xl bg-navy-800 p-4 text-center">
+        <p className="text-sm font-medium">{dictionary.budget.setupTitle}</p>
+        <p className="mt-1 text-xs font-semibold text-gold-400">{dictionary.budget.setupCta}</p>
+      </Link>
+    );
+  }
+
+  const dailyAllowance = Number(data.dailyAllowance);
+  const spentToday = Number(data.spentToday);
+  const usedFraction = dailyAllowance > 0 ? spentToday / dailyAllowance : 1;
+
+  return (
+    <div className="rounded-2xl bg-navy-800 p-4">
+      <div className="flex items-center gap-4">
+        <SemicircleGauge usedFraction={usedFraction} overspent={data.overspentToday} />
+        <div className="flex-1">
+          {data.overspentToday ? (
+            <p className="font-heading text-lg font-semibold text-warn-400">
+              {dictionary.budget.overspentLine(formatMoney(data.overspentAmount ?? "0.00", language))}
+            </p>
+          ) : (
+            <p className="font-heading text-2xl font-semibold text-ivory-50">
+              {formatMoney(data.todayLeft ?? "0.00", language)}
+            </p>
+          )}
+          <p className="text-xs text-slate-400">
+            {dictionary.budget.dailyAllowanceLabel} {formatMoney(data.dailyAllowance ?? "0.00", language)}
+          </p>
+        </div>
+      </div>
+
+      {data.forecastPositive ? (
+        <p className="mt-2 text-xs text-warn-400">
+          {dictionary.budget.forecastOverage(formatMoney(data.forecastOverage ?? "0.00", language))}
+        </p>
+      ) : null}
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="rounded-xl bg-navy-900 p-2 text-center">
+          <p className="text-xs text-slate-400">{dictionary.budget.todaySpentTile}</p>
+          <p className="text-sm font-semibold">{formatMoney(data.spentToday ?? "0.00", language)}</p>
+        </div>
+        <div className="rounded-xl bg-navy-900 p-2 text-center">
+          <p className="text-xs text-slate-400">{dictionary.budget.tomorrowTile}</p>
+          <p className="text-sm font-semibold">
+            {data.tomorrowAllowance ? `≈ ${formatMoney(data.tomorrowAllowance, language)}` : "—"}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

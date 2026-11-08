@@ -13,6 +13,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -41,6 +42,9 @@ class TransactionsServiceTest {
     @Mock
     private Categories categories;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     @Captor
     private ArgumentCaptor<Transaction> transactionCaptor;
 
@@ -53,7 +57,8 @@ class TransactionsServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new TransactionsService(transactionRepository, auditRepository, accounts, categories, clock, objectMapper);
+        service = new TransactionsService(
+                transactionRepository, auditRepository, accounts, categories, clock, objectMapper, eventPublisher);
     }
 
     @Test

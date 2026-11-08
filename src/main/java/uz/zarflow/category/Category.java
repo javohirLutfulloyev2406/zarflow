@@ -48,6 +48,8 @@ class Category {
 
     private int sortOrder;
 
+    private boolean fixedDefault;
+
     private Instant archivedAt;
 
     @CreationTimestamp
@@ -115,6 +117,10 @@ class Category {
 
     int getSortOrder() {
         return sortOrder;
+    }
+
+    boolean isFixedDefault() {
+        return fixedDefault;
     }
 
     Instant getArchivedAt() {

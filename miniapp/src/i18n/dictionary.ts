@@ -78,6 +78,7 @@ export interface Dictionary {
     delete: string;
     savedToast: string;
     undo: string;
+    fixedToggleLabel: string;
   };
   profile: {
     title: string;
@@ -102,6 +103,25 @@ export interface Dictionary {
     dailyReportTitle: string;
     dailyReportEnabledLabel: string;
     dailyReportTimeLabel: string;
+  };
+  budget: {
+    dailyAllowanceLabel: string;
+    todaySpentTile: string;
+    tomorrowTile: string;
+    overspentLine: (amount: string) => string;
+    setupTitle: string;
+    setupCta: string;
+    forecastOverage: (amount: string) => string;
+    expectedIncomeLabel: string;
+    fixedPaymentsLabel: string;
+    loanPaymentsLabel: string;
+    plannedSavingsLabel: string;
+    freeBudgetLabel: string;
+    negativeFreeBudgetWarning: string;
+    limitsTitle: string;
+    limitAmountPlaceholder: string;
+    save: string;
+    saved: string;
   };
   error: {
     generic: string;
@@ -192,6 +212,7 @@ const uz: Dictionary = {
     delete: "O'chirish",
     savedToast: "Saqlandi",
     undo: "Bekor qilish",
+    fixedToggleLabel: "Majburiy to'lov",
   },
   profile: {
     title: "Profil",
@@ -216,6 +237,25 @@ const uz: Dictionary = {
     dailyReportTitle: "Kunlik hisobot",
     dailyReportEnabledLabel: "Har kuni hisobot yuborilsin",
     dailyReportTimeLabel: "Vaqti",
+  },
+  budget: {
+    dailyAllowanceLabel: "Kunlik ruxsat",
+    todaySpentTile: "Bugun sarflandi",
+    tomorrowTile: "Ertangi ruxsat",
+    overspentLine: (amount) => `0 so'm · limitdan ${amount} oshdi`,
+    setupTitle: "Byudjetni sozlang",
+    setupCta: "Boshlash",
+    forecastOverage: (amount) => `Shu tezlikda oy oxirida ${amount} oshadi`,
+    expectedIncomeLabel: "① Kutilgan oylik daromad",
+    fixedPaymentsLabel: "② Doimiy to'lovlar (ijara, kommunal...)",
+    loanPaymentsLabel: "③ Kredit to'lovlari",
+    plannedSavingsLabel: "④ Jamg'arish rejasi",
+    freeBudgetLabel: "Erkin byudjet",
+    negativeFreeBudgetWarning: "Majburiyatlar daromaddan oshib ketdi.",
+    limitsTitle: "Kategoriya limitlari",
+    limitAmountPlaceholder: "Limit",
+    save: "Saqlash",
+    saved: "Saqlandi",
   },
   error: {
     generic: "Kutilmagan xatolik yuz berdi. Ilovani qayta ochib ko'ring.",
@@ -306,6 +346,7 @@ const ru: Dictionary = {
     delete: "Удалить",
     savedToast: "Сохранено",
     undo: "Отменить",
+    fixedToggleLabel: "Обязательный платёж",
   },
   profile: {
     title: "Профиль",
@@ -330,6 +371,25 @@ const ru: Dictionary = {
     dailyReportTitle: "Ежедневный отчёт",
     dailyReportEnabledLabel: "Отправлять отчёт каждый день",
     dailyReportTimeLabel: "Время",
+  },
+  budget: {
+    dailyAllowanceLabel: "Дневной лимит",
+    todaySpentTile: "Потрачено сегодня",
+    tomorrowTile: "Лимит на завтра",
+    overspentLine: (amount) => `0 сум · превышено на ${amount}`,
+    setupTitle: "Настройте бюджет",
+    setupCta: "Начать",
+    forecastOverage: (amount) => `В таком темпе к концу месяца превышение составит ${amount}`,
+    expectedIncomeLabel: "① Ожидаемый доход в месяц",
+    fixedPaymentsLabel: "② Постоянные платежи (аренда, коммуналка...)",
+    loanPaymentsLabel: "③ Платежи по кредиту",
+    plannedSavingsLabel: "④ План накоплений",
+    freeBudgetLabel: "Свободный бюджет",
+    negativeFreeBudgetWarning: "Обязательства превышают доход.",
+    limitsTitle: "Лимиты по категориям",
+    limitAmountPlaceholder: "Лимит",
+    save: "Сохранить",
+    saved: "Сохранено",
   },
   error: {
     generic: "Произошла непредвиденная ошибка. Откройте приложение ещё раз.",

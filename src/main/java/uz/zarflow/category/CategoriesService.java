@@ -30,7 +30,7 @@ class CategoriesService implements Categories {
     public CategoryOwnership requireUsable(UUID userId, UUID categoryId) {
         Category category = OwnershipGuard.requireFound(
                 categoryRepository.findVisibleByIdForUser(categoryId, userId), "category");
-        return new CategoryOwnership(category.getId(), category.getType(), category.getNecessity());
+        return new CategoryOwnership(category.getId(), category.getType(), category.getNecessity(), category.isFixedDefault());
     }
 
     @Override
@@ -51,7 +51,8 @@ class CategoriesService implements Categories {
                 row.getNecessity() == null ? null : Necessity.valueOf(row.getNecessity()),
                 row.getIcon(),
                 row.getColor(),
-                row.getUsageCount());
+                row.getUsageCount(),
+                row.getFixedDefault());
     }
 
 }

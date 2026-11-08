@@ -30,10 +30,11 @@ public interface Categories {
             Necessity necessity,
             String icon,
             String color,
-            long usageCount) {
+            long usageCount,
+            boolean fixedDefault) {
     }
 
-    record CategoryOwnership(UUID id, CategoryType type, Necessity necessity) {
+    record CategoryOwnership(UUID id, CategoryType type, Necessity necessity, boolean fixedDefault) {
     }
 
 }

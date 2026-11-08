@@ -51,6 +51,10 @@ public interface Transactions {
     /** A single local day's totals plus its single largest expense category — for the daily report. */
     DailyDigest dailyDigest(UUID userId, ZoneId zone, LocalDate date);
 
+    /** Raw income/expense rows (no transfers, no soft-deletes) for a local month — the budget module's own
+     * raw material; it does its own is_fixed / before-today / per-category filtering from these. */
+    List<MonthEntry> monthEntries(UUID userId, ZoneId zone, YearMonth month);
+
     record TodayAndMonth(
             List<ExpenseLine> todayExpenses,
             BigDecimal todayTotal,
@@ -91,6 +95,14 @@ public interface Transactions {
     }
 
     record DailyDigest(BigDecimal income, BigDecimal expense, int txCount, UUID topCategoryId, BigDecimal topCategoryAmount) {
+    }
+
+    record MonthEntry(TransactionType type, BigDecimal amount, boolean isFixed, UUID categoryId, Instant transactionDate) {
+    }
+
+    /** Published after a committed EXPENSE save (create or update, bot or app) — the budget module
+     * listens for this to check 80%/100% category-limit crossings. */
+    record ExpenseRecorded(UUID userId, UUID categoryId) {
     }
 
 }
