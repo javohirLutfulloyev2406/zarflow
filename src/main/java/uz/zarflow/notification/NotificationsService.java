@@ -21,8 +21,8 @@ class NotificationsService implements Notifications {
     @Transactional(readOnly = true)
     public Settings getSettings(UUID userId) {
         return repository.findById(userId)
-                .map(s -> new Settings(s.isDailyReportEnabled(), s.getDailyReportTime()))
-                .orElseGet(() -> new Settings(true, DEFAULT_TIME));
+                .map(s -> new Settings(s.isDailyReportEnabled(), s.getDailyReportTime(), s.isWeeklyReport(), s.isMonthlyReport()))
+                .orElseGet(() -> new Settings(true, DEFAULT_TIME, true, true));
     }
 
     @Override
@@ -30,8 +30,10 @@ class NotificationsService implements Notifications {
     public Settings updateSettings(UUID userId, SettingsUpdate update) {
         NotificationSettings settings = repository.findById(userId).orElseGet(() -> new NotificationSettings(userId));
         settings.update(update.dailyReportEnabled(), update.dailyReportTime());
+        settings.updateReportToggles(update.weeklyReport(), update.monthlyReport());
         repository.save(settings);
-        return new Settings(settings.isDailyReportEnabled(), settings.getDailyReportTime());
+        return new Settings(
+                settings.isDailyReportEnabled(), settings.getDailyReportTime(), settings.isWeeklyReport(), settings.isMonthlyReport());
     }
 
 }

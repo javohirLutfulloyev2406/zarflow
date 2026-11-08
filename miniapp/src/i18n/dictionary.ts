@@ -1,4 +1,4 @@
-import type { AccountType, Language, RecurringKind, RecurringSchedule } from "../api/types";
+import type { AccountType, AchievementCode, Language, RecurringKind, RecurringSchedule } from "../api/types";
 import { useLanguage } from "./useLanguage";
 
 export interface Dictionary {
@@ -14,6 +14,7 @@ export interface Dictionary {
     monthExpense: string;
     monthNet: string;
     balancesTitle: string;
+    streakLabel: (days: number) => string;
   };
   nav: {
     home: string;
@@ -103,6 +104,22 @@ export interface Dictionary {
     dailyReportTitle: string;
     dailyReportEnabledLabel: string;
     dailyReportTimeLabel: string;
+    weeklyReportLabel: string;
+    monthlyReportLabel: string;
+  };
+  insights: {
+    sectionTitle: string;
+    empty: string;
+    dismissLabel: string;
+    periodWeek: string;
+    periodMonth: string;
+    comparedToPreviousPeriod: string;
+  };
+  achievements: {
+    title: string;
+    locked: string;
+    codeLabel: Record<AchievementCode, string>;
+    codeDescription: Record<AchievementCode, string>;
   };
   budget: {
     dailyAllowanceLabel: string;
@@ -181,6 +198,7 @@ const uz: Dictionary = {
     monthExpense: "Xarajat",
     monthNet: "Sof",
     balancesTitle: "Hisoblar",
+    streakLabel: (days) => `${days} kun ketma-ket`,
   },
   nav: {
     home: "Asosiy",
@@ -276,6 +294,32 @@ const uz: Dictionary = {
     dailyReportTitle: "Kunlik hisobot",
     dailyReportEnabledLabel: "Har kuni hisobot yuborilsin",
     dailyReportTimeLabel: "Vaqti",
+    weeklyReportLabel: "Haftalik hisobot (yakshanba kuni)",
+    monthlyReportLabel: "Oylik hisobot (oy boshida)",
+  },
+  insights: {
+    sectionTitle: "Maslahatlar",
+    empty: "Hozircha maslahatlar yo'q.",
+    dismissLabel: "Yopish",
+    periodWeek: "Hafta",
+    periodMonth: "Oy",
+    comparedToPreviousPeriod: "Oldingi davrga nisbatan",
+  },
+  achievements: {
+    title: "Yutuqlar",
+    locked: "Ochilmagan",
+    codeLabel: {
+      STREAK_7: "7 kunlik odat",
+      STREAK_30: "30 kunlik odat",
+      LIMIT_WEEK: "Haftalik limit ustasi",
+      FULL_MONTH: "Butun oy",
+    },
+    codeDescription: {
+      STREAK_7: "7 kun ketma-ket yozib boring",
+      STREAK_30: "30 kun ketma-ket yozib boring",
+      LIMIT_WEEK: "7 kun davomida kunlik limitdan oshmang",
+      FULL_MONTH: "Butun oy davomida har kuni yozib boring",
+    },
   },
   budget: {
     dailyAllowanceLabel: "Kunlik ruxsat",
@@ -354,6 +398,7 @@ const ru: Dictionary = {
     monthExpense: "Расход",
     monthNet: "Чистыми",
     balancesTitle: "Счета",
+    streakLabel: (days) => `${days} дней подряд`,
   },
   nav: {
     home: "Главная",
@@ -449,6 +494,32 @@ const ru: Dictionary = {
     dailyReportTitle: "Ежедневный отчёт",
     dailyReportEnabledLabel: "Отправлять отчёт каждый день",
     dailyReportTimeLabel: "Время",
+    weeklyReportLabel: "Недельный отчёт (по воскресеньям)",
+    monthlyReportLabel: "Месячный отчёт (в начале месяца)",
+  },
+  insights: {
+    sectionTitle: "Советы",
+    empty: "Пока нет советов.",
+    dismissLabel: "Закрыть",
+    periodWeek: "Неделя",
+    periodMonth: "Месяц",
+    comparedToPreviousPeriod: "По сравнению с прошлым периодом",
+  },
+  achievements: {
+    title: "Достижения",
+    locked: "Не открыто",
+    codeLabel: {
+      STREAK_7: "7-дневная привычка",
+      STREAK_30: "30-дневная привычка",
+      LIMIT_WEEK: "Мастер недельного лимита",
+      FULL_MONTH: "Весь месяц",
+    },
+    codeDescription: {
+      STREAK_7: "Записывайте 7 дней подряд",
+      STREAK_30: "Записывайте 30 дней подряд",
+      LIMIT_WEEK: "7 дней подряд в рамках дневного лимита",
+      FULL_MONTH: "Записывайте каждый день весь месяц",
+    },
   },
   budget: {
     dailyAllowanceLabel: "Дневной лимит",

@@ -1,6 +1,7 @@
 package uz.zarflow.notification;
 
 import java.time.Clock;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -12,6 +13,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import uz.zarflow.category.Categories;
+import uz.zarflow.habit.AchievementCode;
+import uz.zarflow.habit.Habits;
+import uz.zarflow.insight.Insights;
 import uz.zarflow.shared.exception.NotFoundException;
 import uz.zarflow.telegram.BotNotifications;
 import uz.zarflow.transaction.Transactions;
@@ -24,6 +28,9 @@ class DailyReportService {
     private final NotificationSettingsRepository settingsRepository;
     private final Transactions transactions;
     private final Categories categories;
+    private final Insights insights;
+    private final Habits habits;
+    private final WeeklyReportService weeklyReportService;
     private final BotNotifications botNotifications;
     private final Clock clock;
 
@@ -32,12 +39,18 @@ class DailyReportService {
             NotificationSettingsRepository settingsRepository,
             Transactions transactions,
             Categories categories,
+            Insights insights,
+            Habits habits,
+            WeeklyReportService weeklyReportService,
             BotNotifications botNotifications,
             Clock clock) {
         this.userProfiles = userProfiles;
         this.settingsRepository = settingsRepository;
         this.transactions = transactions;
         this.categories = categories;
+        this.insights = insights;
+        this.habits = habits;
+        this.weeklyReportService = weeklyReportService;
         this.botNotifications = botNotifications;
         this.clock = clock;
     }
@@ -70,30 +83,57 @@ class DailyReportService {
             return;
         }
 
-        sendReport(user, zone, today);
+        boolean weeklyEnabled = settings == null || settings.isWeeklyReport();
+        sendDue(user, zone, today, weeklyEnabled);
 
         NotificationSettings toSave = settings == null ? new NotificationSettings(user.id()) : settings;
         toSave.markSent(today);
         settingsRepository.save(toSave);
     }
 
-    /** For the local-only "send my report now" dev endpoint — ignores the time-of-day/already-sent gate. */
-    @Transactional(readOnly = true)
-    public void sendNow(UUID userId) {
+    /** For the local-only "send my report now" dev endpoint -- ignores the time-of-day/already-sent
+     * gate. {@code asOfDateOrNull} lets the endpoint rehearse any date; {@code null} means "today". */
+    @Transactional
+    public void sendNow(UUID userId, LocalDate asOfDateOrNull) {
         UserProfiles.UserSummary user = userProfiles.find(userId).orElseThrow(() -> new NotFoundException("user.not_found"));
         ZoneId zone = user.timezone();
-        sendReport(user, zone, LocalDate.now(clock.withZone(zone)));
+        LocalDate date = asOfDateOrNull != null ? asOfDateOrNull : LocalDate.now(clock.withZone(zone));
+        sendDue(user, zone, date, true);
+    }
+
+    /** Insight evaluation and achievement checks run every time regardless of report type --
+     * only the report content itself swaps to the weekly digest on Sundays. */
+    private void sendDue(UserProfiles.UserSummary user, ZoneId zone, LocalDate today, boolean weeklyEnabled) {
+        insights.evaluateAndStore(user.id(), today);
+        announceNewAchievements(user);
+
+        if (weeklyEnabled && today.getDayOfWeek() == DayOfWeek.SUNDAY) {
+            weeklyReportService.sendWeekly(user, zone, today);
+            return;
+        }
+        sendReport(user, zone, today);
+    }
+
+    private void announceNewAchievements(UserProfiles.UserSummary user) {
+        List<AchievementCode> unlocked = habits.recomputeAndUnlockAchievements(user.id());
+        for (AchievementCode code : unlocked) {
+            botNotifications.sendAchievementUnlocked(user.telegramId(), user.language(), code);
+        }
     }
 
     private void sendReport(UserProfiles.UserSummary user, ZoneId zone, LocalDate date) {
+        Locale locale = Locale.of(user.language());
         Transactions.DailyDigest digest = transactions.dailyDigest(user.id(), zone, date);
+        String insightLine = insights.takeTopUnsentForBot(user.id(), locale).map(Insights.RenderedInsight::text).orElse(null);
+        int streakDays = habits.getSummary(user.id()).currentStreak();
+
         if (digest.txCount() == 0) {
-            botNotifications.sendDailyReportNoActivity(user.telegramId(), user.language());
+            botNotifications.sendDailyReportNoActivity(user.telegramId(), user.language(), insightLine, streakDays);
             return;
         }
-        String topLabel = topCategoryLabel(user.id(), digest.topCategoryId(), Locale.of(user.language()));
-        botNotifications.sendDailyReportWithActivity(user.telegramId(), user.language(),
-                new BotNotifications.DailyReportActivity(date, digest.income(), digest.expense(), topLabel, digest.topCategoryAmount()));
+        String topLabel = topCategoryLabel(user.id(), digest.topCategoryId(), locale);
+        botNotifications.sendDailyReportWithActivity(user.telegramId(), user.language(), new BotNotifications.DailyReportActivity(
+                date, digest.income(), digest.expense(), topLabel, digest.topCategoryAmount(), insightLine, streakDays));
     }
 
     private String topCategoryLabel(UUID userId, UUID categoryId, Locale locale) {

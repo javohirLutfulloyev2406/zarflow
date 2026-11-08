@@ -1,11 +1,13 @@
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { getHabitSummary } from "../api/habits";
+import { dismissInsight, listInsights } from "../api/insights";
 import { getTodayBudget } from "../api/budgets";
 import { listCategories } from "../api/categories";
 import { listUpcomingOccurrences } from "../api/recurring";
 import { getTodayAndMonth } from "../api/summary";
-import type { TodayBudgetResponse, UpcomingOccurrence } from "../api/types";
+import type { Insight, TodayBudgetResponse, UpcomingOccurrence } from "../api/types";
 import { todayKey } from "../analytics/month";
 import { SemicircleGauge } from "../budget/SemicircleGauge";
 import { EmptyStateCard } from "../components/EmptyStateCard";
@@ -25,6 +27,8 @@ export function Home() {
   const summary = useQuery({ queryKey: ["summary"], queryFn: getTodayAndMonth });
   const budgetToday = useQuery({ queryKey: ["budget", "today"], queryFn: getTodayBudget });
   const upcoming = useQuery({ queryKey: ["recurring", "upcoming", 7], queryFn: () => listUpcomingOccurrences(7) });
+  const habitSummary = useQuery({ queryKey: ["habits"], queryFn: getHabitSummary });
+  const insights = useQuery({ queryKey: ["insights"], queryFn: listInsights });
 
   function categoryLabel(categoryId: string | null): string {
     const category = categories.find((c) => c.id === categoryId);
@@ -35,7 +39,17 @@ export function Home() {
   return (
     <div className="flex flex-col gap-4 p-4">
       <header className="flex items-center justify-between">
-        <h1 className="font-heading text-lg font-semibold">{dictionary.greeting(name)}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="font-heading text-lg font-semibold">{dictionary.greeting(name)}</h1>
+          {habitSummary.data && habitSummary.data.currentStreak > 0 ? (
+            <span
+              aria-label={dictionary.home.streakLabel(habitSummary.data.currentStreak)}
+              className="rounded-full bg-navy-800 px-2 py-0.5 text-xs font-semibold text-gold-400"
+            >
+              🔥 {habitSummary.data.currentStreak}
+            </span>
+          ) : null}
+        </div>
         <Link
           to="/profile"
           aria-label="Profile"
@@ -48,6 +62,8 @@ export function Home() {
       </header>
 
       {budgetToday.data ? <BudgetHeroCard data={budgetToday.data} /> : null}
+
+      {insights.data?.[0] ? <InsightCard insight={insights.data[0]} /> : null}
 
       {upcoming.data && upcoming.data.length > 0 ? <UpcomingPaymentsCard occurrences={upcoming.data} /> : null}
 
@@ -113,6 +129,32 @@ export function Home() {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+function InsightCard({ insight }: { insight: Insight }) {
+  const dictionary = useDictionary();
+  const queryClient = useQueryClient();
+
+  const dismissMutation = useMutation({
+    mutationFn: () => dismissInsight(insight.id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["insights"] }),
+  });
+
+  return (
+    <div className="flex items-start gap-3 rounded-2xl bg-navy-800 p-4">
+      <span className="text-xl">{insight.icon}</span>
+      <p className="flex-1 text-sm text-ivory-50">{insight.text}</p>
+      <button
+        type="button"
+        onClick={() => dismissMutation.mutate()}
+        disabled={dismissMutation.isPending}
+        aria-label={dictionary.insights.dismissLabel}
+        className="text-slate-400 disabled:opacity-50"
+      >
+        ✕
+      </button>
     </div>
   );
 }
