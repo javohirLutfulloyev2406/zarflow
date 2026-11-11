@@ -89,9 +89,12 @@ public interface Transactions {
             UUID id, UUID accountId, UUID categoryId, BigDecimal amount, String description, Instant transactionDate) {
     }
 
+    /** {@code transactionDate} null means "now" -- set when the bot's quick-input recognized a
+     * backdating phrase ("kecha", "3 kun oldin", ...); still subject to the same future-date rule
+     * as every other transaction. */
     record BotCreateInput(
             UUID accountId, UUID categoryId, TransactionType type, BigDecimal amount, Necessity necessity,
-            String description, String idempotencyKey) {
+            String description, String idempotencyKey, Instant transactionDate) {
     }
 
     record BotTransaction(

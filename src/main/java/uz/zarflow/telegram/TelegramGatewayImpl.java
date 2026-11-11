@@ -9,7 +9,10 @@ import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.botapimethods.BotApiMethod;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
+import org.telegram.telegrambots.meta.api.methods.description.SetMyDescription;
+import org.telegram.telegrambots.meta.api.methods.description.SetMyShortDescription;
 import org.telegram.telegrambots.meta.api.methods.menubutton.SetChatMenuButton;
+import org.telegram.telegrambots.meta.api.methods.name.SetMyName;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updates.SetWebhook;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
@@ -90,6 +93,33 @@ class TelegramGatewayImpl implements TelegramGateway {
                 .languageCode(languageCode)
                 .build();
         execute(method, "setMyCommands");
+    }
+
+    @Override
+    public void setMyName(String name, String languageCode) {
+        SetMyName method = SetMyName.builder()
+                .name(name)
+                .languageCode(languageCode)
+                .build();
+        execute(method, "setMyName");
+    }
+
+    @Override
+    public void setMyShortDescription(String shortDescription, String languageCode) {
+        SetMyShortDescription method = SetMyShortDescription.builder()
+                .shortDescription(shortDescription)
+                .languageCode(languageCode)
+                .build();
+        execute(method, "setMyShortDescription");
+    }
+
+    @Override
+    public void setMyDescription(String description, String languageCode) {
+        SetMyDescription method = SetMyDescription.builder()
+                .description(description)
+                .languageCode(languageCode)
+                .build();
+        execute(method, "setMyDescription");
     }
 
     private <T extends Serializable, M extends BotApiMethod<T>> void execute(M method, String methodName) {

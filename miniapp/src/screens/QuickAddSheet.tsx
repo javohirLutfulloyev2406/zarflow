@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { dateKeyOf, instantAtDateKey, todayKey } from "../analytics/month";
 import { listAccounts } from "../api/accounts";
 import { listCategories } from "../api/categories";
 import { ApiError } from "../api/problemDetail";
@@ -35,6 +36,9 @@ export function QuickAddSheet({
   const [note, setNote] = useState(editing?.description ?? "");
   const [isFixed, setIsFixed] = useState(editing?.isFixed ?? false);
   const [error, setError] = useState<string | null>(null);
+
+  const initialDate = editing ? dateKeyOf(editing.transactionDate) : todayKey();
+  const [date, setDate] = useState(initialDate);
 
   const { data: accounts = [] } = useQuery({ queryKey: ["accounts"], queryFn: listAccounts });
   const { data: categories = [] } = useQuery({ queryKey: ["categories"], queryFn: listCategories });
@@ -77,11 +81,15 @@ export function QuickAddSheet({
     mutationFn: async () => {
       const amount = `${amountDigits}.00`;
       const description = note.trim() === "" ? null : note.trim();
+      // Only moved off its original day if the user actually touched the date field --
+      // otherwise null, so we don't nudge an untouched entry's time-of-day on every edit.
+      const transactionDate = date === initialDate ? null : instantAtDateKey(date);
       if (tab === "TRANSFER") {
         const result = await transfer({
           fromAccountId: effectiveAccountId!,
           toAccountId: effectiveToAccountId!,
           amount,
+          transactionDate,
           description,
         });
         return { id: null, result };
@@ -92,14 +100,14 @@ export function QuickAddSheet({
           categoryId: categoryId!,
           amount,
           necessity: null,
-          transactionDate: null,
+          transactionDate,
           description,
           isFixed,
         });
         return { id: result.id, result };
       }
       const result = await createTransaction(
-        { accountId: effectiveAccountId!, categoryId: categoryId!, type: tab, amount, description, isFixed },
+        { accountId: effectiveAccountId!, categoryId: categoryId!, type: tab, amount, transactionDate, description, isFixed },
         crypto.randomUUID(),
       );
       return { id: result.id, result };
@@ -272,6 +280,17 @@ export function QuickAddSheet({
             <span>{isFixed ? "✓" : ""}</span>
           </button>
         )}
+
+        <div className="flex items-center justify-between rounded-lg bg-navy-900 px-3 py-2">
+          <span className="text-xs text-slate-400">{dictionary.quickAdd.dateLabel}</span>
+          <input
+            type="date"
+            value={date}
+            max={todayKey()}
+            onChange={(event) => setDate(event.target.value > todayKey() ? todayKey() : event.target.value)}
+            className="bg-transparent text-right text-sm text-ivory-50"
+          />
+        </div>
 
         <input
           value={note}

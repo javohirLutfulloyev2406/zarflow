@@ -14,6 +14,9 @@ class FakeTelegramGateway implements TelegramGateway {
     private final List<SetWebhookCall> setWebhookCalls = new ArrayList<>();
     private final List<SetChatMenuButtonCall> setChatMenuButtonCalls = new ArrayList<>();
     private final List<SetMyCommandsCall> setMyCommandsCalls = new ArrayList<>();
+    private final List<SetMyNameCall> setMyNameCalls = new ArrayList<>();
+    private final List<SetMyShortDescriptionCall> setMyShortDescriptionCalls = new ArrayList<>();
+    private final List<SetMyDescriptionCall> setMyDescriptionCalls = new ArrayList<>();
 
     @Override
     public void sendMessage(long chatId, String text, InlineKeyboardMarkup replyMarkup) {
@@ -45,6 +48,21 @@ class FakeTelegramGateway implements TelegramGateway {
         setMyCommandsCalls.add(new SetMyCommandsCall(commands, languageCode));
     }
 
+    @Override
+    public void setMyName(String name, String languageCode) {
+        setMyNameCalls.add(new SetMyNameCall(name, languageCode));
+    }
+
+    @Override
+    public void setMyShortDescription(String shortDescription, String languageCode) {
+        setMyShortDescriptionCalls.add(new SetMyShortDescriptionCall(shortDescription, languageCode));
+    }
+
+    @Override
+    public void setMyDescription(String description, String languageCode) {
+        setMyDescriptionCalls.add(new SetMyDescriptionCall(description, languageCode));
+    }
+
     List<SentMessage> sentMessages() {
         return List.copyOf(sentMessages);
     }
@@ -67,6 +85,18 @@ class FakeTelegramGateway implements TelegramGateway {
 
     List<SetMyCommandsCall> setMyCommandsCalls() {
         return List.copyOf(setMyCommandsCalls);
+    }
+
+    List<SetMyNameCall> setMyNameCalls() {
+        return List.copyOf(setMyNameCalls);
+    }
+
+    List<SetMyShortDescriptionCall> setMyShortDescriptionCalls() {
+        return List.copyOf(setMyShortDescriptionCalls);
+    }
+
+    List<SetMyDescriptionCall> setMyDescriptionCalls() {
+        return List.copyOf(setMyDescriptionCalls);
     }
 
     static String webAppUrlOf(SentMessage message) {
@@ -94,6 +124,15 @@ class FakeTelegramGateway implements TelegramGateway {
     }
 
     record SetMyCommandsCall(List<BotCommand> commands, String languageCode) {
+    }
+
+    record SetMyNameCall(String name, String languageCode) {
+    }
+
+    record SetMyShortDescriptionCall(String shortDescription, String languageCode) {
+    }
+
+    record SetMyDescriptionCall(String description, String languageCode) {
     }
 
 }

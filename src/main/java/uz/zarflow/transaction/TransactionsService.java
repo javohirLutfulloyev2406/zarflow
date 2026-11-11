@@ -81,7 +81,7 @@ class TransactionsService implements Transactions {
     public BotTransaction createFromBot(UUID userId, BotCreateInput input) {
         TransactionView view = createInternal(
                 userId, input.accountId(), input.categoryId(), input.type(), input.amount(), input.necessity(),
-                null, input.description(), TransactionSource.BOT, input.idempotencyKey(), null);
+                input.transactionDate(), input.description(), TransactionSource.BOT, input.idempotencyKey(), null);
         return toBotTransaction(view);
     }
 

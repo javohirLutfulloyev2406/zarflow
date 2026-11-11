@@ -81,6 +81,7 @@ export interface Dictionary {
     accountLabel: string;
     fromAccountLabel: string;
     toAccountLabel: string;
+    dateLabel: string;
     noteLabel: string;
     notePlaceholder: string;
     save: string;
@@ -323,6 +324,7 @@ const uz: Dictionary = {
     accountLabel: "Hisob",
     fromAccountLabel: "Qayerdan",
     toAccountLabel: "Qayerga",
+    dateLabel: "Sana",
     noteLabel: "Izoh",
     notePlaceholder: "Ixtiyoriy",
     save: "Saqlash",
@@ -584,6 +586,7 @@ const ru: Dictionary = {
     accountLabel: "Счёт",
     fromAccountLabel: "Откуда",
     toAccountLabel: "Куда",
+    dateLabel: "Дата",
     noteLabel: "Заметка",
     notePlaceholder: "Необязательно",
     save: "Сохранить",
