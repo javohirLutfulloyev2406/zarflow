@@ -45,6 +45,12 @@ class TransactionsService implements Transactions {
 
     private static final Logger log = LoggerFactory.getLogger(TransactionsService.class);
 
+    /** System categories (V21__seed_tuzatish_categories.sql) that Humo balance-reconciliation
+     * corrections (docs/PRD.md §7) are booked under -- excluded from analytics/insights/the
+     * daily limit everywhere {@link #tuzatishIds} is threaded through below. */
+    private static final String TUZATISH_EXPENSE_CODE = "tuzatish_exp";
+    private static final String TUZATISH_INCOME_CODE = "tuzatish_inc";
+
     private final TransactionRepository transactionRepository;
     private final TransactionAuditRepository auditRepository;
     private final Accounts accounts;
@@ -234,8 +240,11 @@ class TransactionsService implements Transactions {
     @Transactional(readOnly = true)
     public List<BotTransaction> listToday(UUID userId, ZoneId zone) {
         DateRange.InstantRange today = DateRange.today(clock, zone).toInstantRange(zone);
+        TuzatishIds excluded = tuzatishIds(userId);
         return transactionRepository
-                .findIncomeAndExpenseInRange(userId, today.startInclusive(), today.endExclusive()).stream()
+                .findIncomeAndExpenseInRange(
+                        userId, today.startInclusive(), today.endExclusive(), excluded.expenseId(), excluded.incomeId())
+                .stream()
                 .map(t -> toBotTransaction(toView(t)))
                 .toList();
     }
@@ -390,16 +399,19 @@ class TransactionsService implements Transactions {
     public TodayAndMonth summarize(UUID userId, ZoneId zone) {
         DateRange.InstantRange today = DateRange.today(clock, zone).toInstantRange(zone);
         DateRange.InstantRange month = DateRange.thisMonth(clock, zone).toInstantRange(zone);
+        TuzatishIds excluded = tuzatishIds(userId);
 
         List<ExpenseLine> todayExpenses = transactionRepository
-                .findExpensesInRange(userId, today.startInclusive(), today.endExclusive()).stream()
+                .findExpensesInRange(userId, today.startInclusive(), today.endExclusive(), excluded.expenseId())
+                .stream()
                 .map(t -> new ExpenseLine(t.getId(), t.getAccountId(), t.getCategoryId(), t.getAmount(),
                         t.getDescription(), t.getTransactionDate()))
                 .toList();
         BigDecimal todayTotal = todayExpenses.stream().map(ExpenseLine::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
 
         Map<TransactionType, BigDecimal> monthTotals = transactionRepository
-                .sumByTypeInRange(userId, month.startInclusive(), month.endExclusive()).stream()
+                .sumByTypeInRange(userId, month.startInclusive(), month.endExclusive(), excluded.expenseId(), excluded.incomeId())
+                .stream()
                 .collect(Collectors.toMap(TransactionRepository.TypeTotalRow::getType, TransactionRepository.TypeTotalRow::getTotal));
         BigDecimal monthIncome = monthTotals.getOrDefault(TransactionType.INCOME, BigDecimal.ZERO);
         BigDecimal monthExpense = monthTotals.getOrDefault(TransactionType.EXPENSE, BigDecimal.ZERO);
@@ -413,8 +425,9 @@ class TransactionsService implements Transactions {
     @Transactional(readOnly = true)
     public PeriodAnalytics analyticsForRange(UUID userId, ZoneId zone, LocalDate from, LocalDate toInclusive) {
         DateRange.InstantRange range = DateRange.custom(from, toInclusive).toInstantRange(zone);
-        List<Transaction> rangeTx = transactionRepository
-                .findIncomeAndExpenseInRange(userId, range.startInclusive(), range.endExclusive());
+        TuzatishIds excluded = tuzatishIds(userId);
+        List<Transaction> rangeTx = transactionRepository.findIncomeAndExpenseInRange(
+                userId, range.startInclusive(), range.endExclusive(), excluded.expenseId(), excluded.incomeId());
 
         BigDecimal income = sumAmount(rangeTx, TransactionType.INCOME, null);
         BigDecimal expense = sumAmount(rangeTx, TransactionType.EXPENSE, null);
@@ -431,8 +444,9 @@ class TransactionsService implements Transactions {
     @Transactional(readOnly = true)
     public List<DayTotal> dailyTotalsForMonth(UUID userId, ZoneId zone, YearMonth month) {
         DateRange.InstantRange range = DateRange.ofMonth(month).toInstantRange(zone);
-        List<Transaction> monthTx = transactionRepository
-                .findIncomeAndExpenseInRange(userId, range.startInclusive(), range.endExclusive());
+        TuzatishIds excluded = tuzatishIds(userId);
+        List<Transaction> monthTx = transactionRepository.findIncomeAndExpenseInRange(
+                userId, range.startInclusive(), range.endExclusive(), excluded.expenseId(), excluded.incomeId());
 
         Map<LocalDate, List<Transaction>> byDay =
                 monthTx.stream().collect(Collectors.groupingBy(t -> t.getTransactionDate().atZone(zone).toLocalDate()));
@@ -473,7 +487,11 @@ class TransactionsService implements Transactions {
     @Transactional(readOnly = true)
     public List<MonthEntry> monthEntries(UUID userId, ZoneId zone, YearMonth month) {
         DateRange.InstantRange range = DateRange.ofMonth(month).toInstantRange(zone);
-        return transactionRepository.findIncomeAndExpenseInRange(userId, range.startInclusive(), range.endExclusive()).stream()
+        TuzatishIds excluded = tuzatishIds(userId);
+        return transactionRepository
+                .findIncomeAndExpenseInRange(
+                        userId, range.startInclusive(), range.endExclusive(), excluded.expenseId(), excluded.incomeId())
+                .stream()
                 .map(t -> new MonthEntry(t.getType(), t.getAmount(), t.isFixed(), t.getCategoryId(), t.getTransactionDate()))
                 .toList();
     }
@@ -482,7 +500,10 @@ class TransactionsService implements Transactions {
     @Transactional(readOnly = true)
     public BigDecimal monthDebtPayments(UUID userId, ZoneId zone, YearMonth month) {
         DateRange.InstantRange range = DateRange.ofMonth(month).toInstantRange(zone);
-        return transactionRepository.sumByTypeInRange(userId, range.startInclusive(), range.endExclusive()).stream()
+        TuzatishIds excluded = tuzatishIds(userId);
+        return transactionRepository
+                .sumByTypeInRange(userId, range.startInclusive(), range.endExclusive(), excluded.expenseId(), excluded.incomeId())
+                .stream()
                 .filter(row -> row.getType() == TransactionType.DEBT_PAYMENT)
                 .map(TransactionRepository.TypeTotalRow::getTotal)
                 .findFirst()
@@ -493,7 +514,10 @@ class TransactionsService implements Transactions {
     @Transactional(readOnly = true)
     public Set<LocalDate> activeDates(UUID userId, ZoneId zone, LocalDate from, LocalDate toInclusive) {
         DateRange.InstantRange range = DateRange.custom(from, toInclusive).toInstantRange(zone);
-        return transactionRepository.findIncomeAndExpenseInRange(userId, range.startInclusive(), range.endExclusive())
+        TuzatishIds excluded = tuzatishIds(userId);
+        return transactionRepository
+                .findIncomeAndExpenseInRange(
+                        userId, range.startInclusive(), range.endExclusive(), excluded.expenseId(), excluded.incomeId())
                 .stream()
                 .map(t -> t.getTransactionDate().atZone(zone).toLocalDate())
                 .collect(Collectors.toSet());
@@ -501,7 +525,25 @@ class TransactionsService implements Transactions {
 
     private List<Transaction> findInLocalDay(UUID userId, ZoneId zone, LocalDate date) {
         DateRange.InstantRange range = DateRange.custom(date, date).toInstantRange(zone);
-        return transactionRepository.findIncomeAndExpenseInRange(userId, range.startInclusive(), range.endExclusive());
+        TuzatishIds excluded = tuzatishIds(userId);
+        return transactionRepository.findIncomeAndExpenseInRange(
+                userId, range.startInclusive(), range.endExclusive(), excluded.expenseId(), excluded.incomeId());
+    }
+
+    private TuzatishIds tuzatishIds(UUID userId) {
+        UUID expenseId = null;
+        UUID incomeId = null;
+        for (Categories.CategoryView category : categories.listForUser(userId)) {
+            if (TUZATISH_EXPENSE_CODE.equals(category.code())) {
+                expenseId = category.id();
+            } else if (TUZATISH_INCOME_CODE.equals(category.code())) {
+                incomeId = category.id();
+            }
+        }
+        return new TuzatishIds(expenseId, incomeId);
+    }
+
+    private record TuzatishIds(UUID expenseId, UUID incomeId) {
     }
 
     private Map<UUID, BigDecimal> expenseByCategory(List<Transaction> list) {

@@ -5,6 +5,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -79,6 +80,32 @@ class AccountsService implements Accounts {
     public BigDecimal currentBalance(UUID userId, UUID accountId) {
         requireOwned(userId, accountId);
         return accountRepository.findBalanceByAccountId(accountId).orElse(BigDecimal.ZERO);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BigDecimal balanceAsOf(UUID userId, UUID accountId, Instant asOf) {
+        Account account = OwnershipGuard.requireFound(accountRepository.findByIdAndUserId(accountId, userId), "account");
+        List<AccountRepository.LedgerRow> rows = accountRepository.findLedgerRowsByAccountId(accountId);
+        List<AccountBalanceMath.Entry> ledger = rows.stream()
+                .map(r -> new AccountBalanceMath.Entry(r.getType(), r.getAmount(), r.getTransactionDate()))
+                .toList();
+        return AccountBalanceMath.asOf(account.getInitialBalance(), ledger, asOf);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<UUID> findAccountIdByHumoCard(UUID userId, String cardLast4) {
+        return accountRepository.findByUserIdAndHumoCardLast4AndArchivedAtIsNull(userId, cardLast4)
+                .map(Account::getId);
+    }
+
+    @Override
+    @Transactional
+    public void linkHumoCard(UUID userId, UUID accountId, String cardLast4) {
+        Account account = requireActive(userId, accountId);
+        account.linkHumoCard(cardLast4);
+        accountRepository.save(account);
     }
 
     private Account requireActive(UUID userId, UUID accountId) {

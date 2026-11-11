@@ -30,6 +30,11 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.chat.Chat;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
+import org.telegram.telegrambots.meta.api.objects.messageorigin.MessageOrigin;
+import org.telegram.telegrambots.meta.api.objects.messageorigin.MessageOriginChannel;
+import org.telegram.telegrambots.meta.api.objects.messageorigin.MessageOriginChat;
+import org.telegram.telegrambots.meta.api.objects.messageorigin.MessageOriginHiddenUser;
+import org.telegram.telegrambots.meta.api.objects.messageorigin.MessageOriginUser;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardRow;
@@ -43,6 +48,7 @@ import uz.zarflow.category.Categories;
 import uz.zarflow.debt.DebtStatus;
 import uz.zarflow.debt.Debts;
 import uz.zarflow.habit.Habits;
+import uz.zarflow.humo.HumoReconciliation;
 import uz.zarflow.recurring.Recurring;
 import uz.zarflow.savings.Savings;
 import uz.zarflow.shared.common.DateRange;
@@ -73,6 +79,7 @@ class TelegramUpdateService {
     private final Debts debts;
     private final Habits habits;
     private final Savings savings;
+    private final HumoReconciliation humoReconciliation;
     private final UserParsingMemoryRepository parsingMemoryRepository;
     private final TelegramPendingEntryRepository pendingEntryRepository;
     private final TelegramGateway telegramGateway;
@@ -95,6 +102,7 @@ class TelegramUpdateService {
             Debts debts,
             Habits habits,
             Savings savings,
+            HumoReconciliation humoReconciliation,
             UserParsingMemoryRepository parsingMemoryRepository,
             TelegramPendingEntryRepository pendingEntryRepository,
             TelegramGateway telegramGateway,
@@ -114,6 +122,7 @@ class TelegramUpdateService {
         this.debts = debts;
         this.habits = habits;
         this.savings = savings;
+        this.humoReconciliation = humoReconciliation;
         this.parsingMemoryRepository = parsingMemoryRepository;
         this.pendingEntryRepository = pendingEntryRepository;
         this.telegramGateway = telegramGateway;
@@ -175,8 +184,169 @@ class TelegramUpdateService {
             case "/month" -> runOnboarded(chatId, userId, locale, () -> handleMonth(chatId, userId, locale));
             case "/debt" -> runOnboarded(chatId, userId, locale, () -> handleDebtList(chatId, userId, locale));
             default -> runOnboarded(chatId, userId, locale,
-                    () -> handleQuickInput(message.getText(), update.getUpdateId(), chatId, userId, locale));
+                    () -> handleTextOrHumoBalance(message, update.getUpdateId(), chatId, userId, locale));
         }
+    }
+
+    // ---- Humo balance message reconciliation (docs/PRD.md §7) ----
+
+    private void handleTextOrHumoBalance(Message message, Integer updateId, long chatId, UUID userId, Locale locale) {
+        Instant forwardDate = resolveForwardDate(message);
+        boolean wasForwarded = forwardDate != null;
+        Instant asOf = wasForwarded ? forwardDate : Instant.now(clock);
+        HumoReconciliation.ProcessResult result = humoReconciliation.process(userId, message.getText(), asOf, wasForwarded);
+        if (!result.parsed()) {
+            handleQuickInput(message.getText(), updateId, chatId, userId, locale);
+            return;
+        }
+        sendHumoResult(chatId, locale, result, wasForwarded);
+    }
+
+    private Instant resolveForwardDate(Message message) {
+        Integer epochSeconds = switch (message.getForwardOrigin()) {
+            case null -> null;
+            case MessageOriginUser u -> u.getDate();
+            case MessageOriginHiddenUser u -> u.getDate();
+            case MessageOriginChat c -> c.getDate();
+            case MessageOriginChannel c -> c.getDate();
+            default -> null;
+        };
+        return epochSeconds == null ? null : Instant.ofEpochSecond(epochSeconds);
+    }
+
+    private void sendHumoResult(long chatId, Locale locale, HumoReconciliation.ProcessResult result, boolean wasForwarded) {
+        if (result.duplicate()) {
+            reply(chatId, locale, "bot.humo-balance-duplicate");
+            return;
+        }
+        StringBuilder summary = new StringBuilder();
+        for (var card : result.cards()) {
+            if (card.kind() == HumoReconciliation.Kind.MATCHED) {
+                summary.append(messageSource.getMessage("bot.humo-balance-matched", new Object[]{card.cardLast4()}, locale))
+                        .append('\n');
+            }
+        }
+        if (result.emptyOrIgnoredCount() > 0) {
+            summary.append(messageSource.getMessage(
+                    "bot.humo-balance-empty-ignored", new Object[]{result.emptyOrIgnoredCount()}, locale)).append('\n');
+        }
+        if (!wasForwarded) {
+            summary.append(messageSource.getMessage("bot.humo-pasted-now-note", null, locale)).append('\n');
+        }
+        if (!summary.isEmpty()) {
+            sendSafely(chatId, summary.toString().strip(), null, "bot.humo-balance-matched");
+        }
+        for (var card : result.cards()) {
+            if (card.kind() == HumoReconciliation.Kind.DIFF) {
+                sendHumoDiff(chatId, locale, card.cardLast4(), card.bankBalance(), card.zarflowBalance(), card.diff(),
+                        card.draftId(), card.showHint());
+            } else if (card.kind() == HumoReconciliation.Kind.UNLINKED) {
+                sendHumoUnlinked(chatId, locale, card.cardLast4(), card.bankBalance(), card.draftId());
+            }
+        }
+    }
+
+    private void sendHumoDiff(
+            long chatId, Locale locale, String cardLast4, BigDecimal bankBalance, BigDecimal zarflowBalance,
+            BigDecimal diff, UUID draftId, boolean showHint) {
+        String bank = moneyFormatter.formatBare(Money.of(bankBalance), locale);
+        String zarflow = moneyFormatter.formatBare(Money.of(zarflowBalance), locale);
+        String text = messageSource.getMessage(
+                "bot.humo-balance-diff", new Object[]{cardLast4, bank, zarflow, formatSignedBare(diff, locale)}, locale);
+        if (showHint) {
+            text += "\n" + messageSource.getMessage("bot.humo-tuzatish-hint", null, locale);
+        }
+        sendSafely(chatId, text, humoCorrectOrSkipButtons(locale, draftId), "bot.humo-balance-diff");
+    }
+
+    private void sendHumoUnlinked(long chatId, Locale locale, String cardLast4, BigDecimal bankBalance, UUID draftId) {
+        String bank = moneyFormatter.formatBare(Money.of(bankBalance), locale);
+        String text = messageSource.getMessage("bot.humo-balance-unlinked", new Object[]{cardLast4, bank}, locale);
+        InlineKeyboardButton link = InlineKeyboardButton.builder()
+                .text(messageSource.getMessage("bot.humo-button-link", null, locale))
+                .callbackData("G" + draftId)
+                .build();
+        InlineKeyboardButton ignore = InlineKeyboardButton.builder()
+                .text(messageSource.getMessage("bot.humo-button-ignore", null, locale))
+                .callbackData("I" + draftId)
+                .build();
+        sendSafely(chatId, text, new InlineKeyboardMarkup(List.of(new InlineKeyboardRow(link, ignore))), "bot.humo-balance-unlinked");
+    }
+
+    private InlineKeyboardMarkup humoCorrectOrSkipButtons(Locale locale, UUID draftId) {
+        InlineKeyboardButton correct = InlineKeyboardButton.builder()
+                .text(messageSource.getMessage("bot.humo-button-correct", null, locale))
+                .callbackData("A" + draftId)
+                .build();
+        InlineKeyboardButton skip = InlineKeyboardButton.builder()
+                .text(messageSource.getMessage("bot.recurring-button-skip", null, locale))
+                .callbackData("F" + draftId)
+                .build();
+        return new InlineKeyboardMarkup(List.of(new InlineKeyboardRow(correct, skip)));
+    }
+
+    private String formatSignedBare(BigDecimal diff, Locale locale) {
+        String magnitude = moneyFormatter.formatBare(Money.of(diff.abs()), locale);
+        return (diff.signum() < 0 ? "−" : "+") + magnitude;
+    }
+
+    private void handleHumoCorrect(UUID userId, Locale locale, long chatId, int messageId, UUID draftId) {
+        Optional<HumoReconciliation.CorrectResult> result = humoReconciliation.correct(userId, draftId);
+        if (result.isEmpty()) {
+            return;
+        }
+        String text = result.get().type() == null
+                ? messageSource.getMessage("bot.humo-already-matched", null, locale)
+                : messageSource.getMessage(
+                        "bot.humo-corrected", new Object[]{moneyFormatter.format(Money.of(result.get().amount()), locale)}, locale);
+        telegramGateway.editMessageText(chatId, messageId, text, null);
+    }
+
+    private void handleHumoSkip(UUID userId, Locale locale, long chatId, int messageId, UUID draftId) {
+        humoReconciliation.skip(userId, draftId);
+        telegramGateway.editMessageText(chatId, messageId, messageSource.getMessage("bot.humo-skipped", null, locale), null);
+    }
+
+    private void handleHumoIgnore(UUID userId, Locale locale, long chatId, int messageId, UUID draftId) {
+        humoReconciliation.ignore(userId, draftId);
+        telegramGateway.editMessageText(chatId, messageId, messageSource.getMessage("bot.humo-ignored", null, locale), null);
+    }
+
+    private void handleHumoChooseAccount(UUID userId, Locale locale, long chatId, int messageId, UUID draftId) {
+        List<Accounts.AccountView> userAccountViews = accounts.listForUser(userId);
+        List<InlineKeyboardRow> rows = new ArrayList<>();
+        for (int i = 0; i < userAccountViews.size(); i++) {
+            rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder()
+                    .text(userAccountViews.get(i).name())
+                    .callbackData("H" + draftId + "." + i)
+                    .build()));
+        }
+        String text = messageSource.getMessage("bot.humo-choose-account", null, locale);
+        telegramGateway.editMessageText(chatId, messageId, text, new InlineKeyboardMarkup(rows));
+    }
+
+    private void handleHumoLinkPick(UUID userId, Locale locale, long chatId, int messageId, String payload) {
+        IdAndInt ref = parseIdAndInt(payload);
+        List<Accounts.AccountView> userAccountViews = accounts.listForUser(userId);
+        if (ref.value() < 0 || ref.value() >= userAccountViews.size()) {
+            return;
+        }
+        UUID accountId = userAccountViews.get(ref.value()).id();
+        Optional<HumoReconciliation.LinkResult> result = humoReconciliation.link(userId, ref.id(), accountId);
+        if (result.isEmpty()) {
+            return;
+        }
+        if (result.get().matched()) {
+            telegramGateway.editMessageText(
+                    chatId, messageId, messageSource.getMessage("bot.humo-linked-matched", null, locale), null);
+            return;
+        }
+        String text = messageSource.getMessage(
+                "bot.humo-linked-diff", new Object[]{formatSignedBare(result.get().diff(), locale)}, locale);
+        if (result.get().showHint()) {
+            text += "\n" + messageSource.getMessage("bot.humo-tuzatish-hint", null, locale);
+        }
+        telegramGateway.editMessageText(chatId, messageId, text, humoCorrectOrSkipButtons(locale, result.get().draftId()));
     }
 
     // ---- onboarding gate ----
@@ -581,6 +751,11 @@ class TelegramUpdateService {
                 case 'E' -> handleLeftoverToDebt(userId, locale, chatId, messageId, YearMonth.parse(payload));
                 case 'B' -> handleLeftoverStayInApp(locale, chatId, messageId);
                 case 'T' -> handleLeftoverDismiss(userId, locale, chatId, messageId, YearMonth.parse(payload));
+                case 'A' -> handleHumoCorrect(userId, locale, chatId, messageId, UUID.fromString(payload));
+                case 'F' -> handleHumoSkip(userId, locale, chatId, messageId, UUID.fromString(payload));
+                case 'G' -> handleHumoChooseAccount(userId, locale, chatId, messageId, UUID.fromString(payload));
+                case 'H' -> handleHumoLinkPick(userId, locale, chatId, messageId, payload);
+                case 'I' -> handleHumoIgnore(userId, locale, chatId, messageId, UUID.fromString(payload));
                 default -> { }
             }
         } catch (IllegalArgumentException ex) {

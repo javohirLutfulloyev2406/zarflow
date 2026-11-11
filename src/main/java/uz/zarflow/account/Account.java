@@ -40,6 +40,10 @@ class Account {
 
     private boolean isDefault;
 
+    /** The last 4 digits of a Humo card whose @HUMOcardbot balance messages reconcile against
+     * this account (docs/PRD.md §7) -- null until the user links one via the bot's buttons. */
+    private String humoCardLast4;
+
     @Version
     private Long version;
 
@@ -72,6 +76,10 @@ class Account {
 
     void unmarkDefault() {
         this.isDefault = false;
+    }
+
+    void linkHumoCard(String last4) {
+        this.humoCardLast4 = last4;
     }
 
     void archive(Instant at) {
@@ -108,6 +116,10 @@ class Account {
 
     boolean isDefault() {
         return isDefault;
+    }
+
+    String getHumoCardLast4() {
+        return humoCardLast4;
     }
 
     Long getVersion() {
