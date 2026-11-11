@@ -1,6 +1,7 @@
 package uz.zarflow.category;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -39,6 +40,12 @@ class CategoriesService implements Categories {
         return categoryRepository.findVisibleForUser(userId).stream()
                 .map(c -> new CategoryKeywords(c.getId(), c.getNameUz(), c.getNameRu(), c.getType(), List.of(c.getKeywords())))
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<UUID> systemCategoryIdByCode(String code) {
+        return categoryRepository.findSystemByCode(code).map(Category::getId);
     }
 
     private CategoryView toView(CategoryRepository.CategoryUsageRow row) {

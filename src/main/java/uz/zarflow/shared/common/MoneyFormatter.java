@@ -36,6 +36,25 @@ public class MoneyFormatter {
         return result.toString();
     }
 
+    /** Same grouping/decimal rules as {@link #format}, but without the currency unit --
+     * for compact side-by-side amounts (Humo reconciliation's "bankda X · ZarFlow'da Y · farq Z"
+     * line, docs/PRD.md §7), where repeating "so'm"/"сум" three times would be noise. */
+    public String formatBare(Money money, Locale locale) {
+        BigDecimal amount = money.amount();
+        BigDecimal centsPart = amount.remainder(BigDecimal.ONE).abs();
+
+        DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.ROOT);
+        symbols.setGroupingSeparator(GROUPING_SEPARATOR);
+        DecimalFormat wholeFormat = new DecimalFormat("#,##0", symbols);
+
+        StringBuilder result = new StringBuilder(wholeFormat.format(amount.setScale(0, RoundingMode.DOWN)));
+        if (centsPart.signum() != 0) {
+            int cents = centsPart.movePointRight(2).setScale(0, RoundingMode.HALF_EVEN).intValueExact();
+            result.append(',').append(cents < 10 ? "0" + cents : String.valueOf(cents));
+        }
+        return result.toString();
+    }
+
     public String formatShort(Money money, Locale locale) {
         BigDecimal amount = money.amount();
         if (amount.abs().compareTo(MILLION) < 0) {

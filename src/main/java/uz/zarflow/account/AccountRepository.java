@@ -1,6 +1,7 @@
 package uz.zarflow.account;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -20,6 +21,8 @@ interface AccountRepository extends Repository<Account, UUID> {
     List<Account> findAllByUserIdAndArchivedAtIsNull(UUID userId);
 
     boolean existsByUserIdAndIsDefaultTrueAndArchivedAtIsNull(UUID userId);
+
+    Optional<Account> findByUserIdAndHumoCardLast4AndArchivedAtIsNull(UUID userId, String humoCardLast4);
 
     /**
      * EXPENSE and DEBT_PAYMENT rows are stored as a positive magnitude but subtract from
@@ -53,6 +56,24 @@ interface AccountRepository extends Repository<Account, UUID> {
         UUID getId();
 
         BigDecimal getBalance();
+    }
+
+    /** Raw (non-aggregated) rows for {@link AccountBalanceMath#asOf} -- a Humo reconciliation
+     * needs the account's balance as of an arbitrary past instant (the balance message's
+     * as-of time), not just "now", so the cutoff is applied in pure Java instead of SQL. */
+    @Query(value = """
+            SELECT t.type AS type, t.amount AS amount, t.transaction_date AS transactionDate
+            FROM transactions t
+            WHERE t.account_id = :accountId AND t.deleted_at IS NULL
+            """, nativeQuery = true)
+    List<LedgerRow> findLedgerRowsByAccountId(@Param("accountId") UUID accountId);
+
+    interface LedgerRow {
+        String getType();
+
+        BigDecimal getAmount();
+
+        Instant getTransactionDate();
     }
 
 }
