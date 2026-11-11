@@ -15,6 +15,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -48,6 +49,7 @@ import uz.zarflow.category.Categories;
 import uz.zarflow.debt.DebtStatus;
 import uz.zarflow.debt.Debts;
 import uz.zarflow.habit.Habits;
+import uz.zarflow.humo.HumoImport;
 import uz.zarflow.humo.HumoReconciliation;
 import uz.zarflow.recurring.Recurring;
 import uz.zarflow.savings.Savings;
@@ -80,6 +82,7 @@ class TelegramUpdateService {
     private final Habits habits;
     private final Savings savings;
     private final HumoReconciliation humoReconciliation;
+    private final HumoImport humoImport;
     private final UserParsingMemoryRepository parsingMemoryRepository;
     private final TelegramPendingEntryRepository pendingEntryRepository;
     private final TelegramGateway telegramGateway;
@@ -103,6 +106,7 @@ class TelegramUpdateService {
             Habits habits,
             Savings savings,
             HumoReconciliation humoReconciliation,
+            HumoImport humoImport,
             UserParsingMemoryRepository parsingMemoryRepository,
             TelegramPendingEntryRepository pendingEntryRepository,
             TelegramGateway telegramGateway,
@@ -123,6 +127,7 @@ class TelegramUpdateService {
         this.habits = habits;
         this.savings = savings;
         this.humoReconciliation = humoReconciliation;
+        this.humoImport = humoImport;
         this.parsingMemoryRepository = parsingMemoryRepository;
         this.pendingEntryRepository = pendingEntryRepository;
         this.telegramGateway = telegramGateway;
@@ -194,12 +199,18 @@ class TelegramUpdateService {
         Instant forwardDate = resolveForwardDate(message);
         boolean wasForwarded = forwardDate != null;
         Instant asOf = wasForwarded ? forwardDate : Instant.now(clock);
-        HumoReconciliation.ProcessResult result = humoReconciliation.process(userId, message.getText(), asOf, wasForwarded);
-        if (!result.parsed()) {
+        HumoReconciliation.ProcessResult balanceResult = humoReconciliation.process(userId, message.getText(), asOf, wasForwarded);
+        HumoImport.ProcessResult importResult = humoImport.process(userId, message.getText(), categoryMemoryLookup(userId));
+        if (!balanceResult.parsed() && !importResult.parsed()) {
             handleQuickInput(message.getText(), updateId, chatId, userId, locale);
             return;
         }
-        sendHumoResult(chatId, locale, result, wasForwarded);
+        if (balanceResult.parsed()) {
+            sendHumoResult(chatId, locale, balanceResult, wasForwarded);
+        }
+        if (importResult.parsed()) {
+            sendHumoImportResult(userId, locale, chatId, importResult);
+        }
     }
 
     private Instant resolveForwardDate(Message message) {
@@ -405,6 +416,274 @@ class TelegramUpdateService {
     private boolean mentionsCredit(String line) {
         String normalized = line.toLowerCase(Locale.ROOT);
         return normalized.contains("kredit") || normalized.contains("кредит");
+    }
+
+    // ---- Humo transaction import (docs/PRD.md §1-5) ----
+
+    private Function<String, UUID> categoryMemoryLookup(UUID userId) {
+        return merchantKey -> parsingMemoryRepository.findByUserIdAndPhrase(userId, merchantKey)
+                .map(UserParsingMemory::getCategoryId)
+                .orElse(null);
+    }
+
+    private void rememberMerchantCategory(UUID userId, String merchantKey, UUID categoryId) {
+        UserParsingMemory entry = parsingMemoryRepository.findByUserIdAndPhrase(userId, merchantKey)
+                .orElseGet(() -> new UserParsingMemory(userId, merchantKey, categoryId));
+        entry.setCategoryId(categoryId);
+        parsingMemoryRepository.save(entry);
+    }
+
+    private void sendHumoImportResult(UUID userId, Locale locale, long chatId, HumoImport.ProcessResult result) {
+        String summaryKey = result.pending().isEmpty() ? "bot.humo-import-summary-no-questions" : "bot.humo-import-summary";
+        Object[] args = result.pending().isEmpty()
+                ? new Object[]{result.addedCount(), result.duplicateCount()}
+                : new Object[]{result.addedCount(), result.duplicateCount(), result.pending().size()};
+        StringBuilder summary = new StringBuilder(messageSource.getMessage(summaryKey, args, locale));
+        if (result.skippedNonUzsCount() > 0) {
+            summary.append('\n').append(messageSource.getMessage(
+                    "bot.humo-import-skipped-non-uzs", new Object[]{result.skippedNonUzsCount()}, locale));
+        }
+        sendSafely(chatId, summary.toString(), null, "bot.humo-import-summary");
+        for (HumoImport.Outcome outcome : result.pending()) {
+            sendHumoImportOutcome(userId, locale, chatId, outcome);
+        }
+    }
+
+    private void sendHumoImportOutcome(UUID userId, Locale locale, long chatId, HumoImport.Outcome outcome) {
+        switch (outcome) {
+            case HumoImport.Outcome.NeedsCardLink o -> sendSafely(
+                    chatId, humoImportAccountAskText(o.cardLast4(), o.type(), o.amount(), o.merchantRaw(), locale),
+                    humoImportAccountButtons(userId, locale, "Q" + o.draftId()), "bot.humo-import-ask-account");
+            case HumoImport.Outcome.NeedsP2pChoice o -> sendSafely(
+                    chatId, humoImportP2pAskText(o, locale), humoImportP2pButtons(locale, o.draftId()), "bot.humo-import-ask-p2p");
+            case HumoImport.Outcome.NeedsP2pAccount o -> sendSafely(
+                    chatId, messageSource.getMessage("bot.humo-import-ask-p2p-account", null, locale),
+                    humoImportAccountButtons(userId, locale, "Q" + o.draftId()), "bot.humo-import-ask-p2p-account");
+            case HumoImport.Outcome.NeedsLoanPick o -> sendSafely(
+                    chatId, humoImportLoanAskText(o, locale), humoImportLoanButtons(userId, locale, o.draftId()), "bot.humo-import-ask-debt");
+            case HumoImport.Outcome.NeedsCategory o -> sendSafely(
+                    chatId, messageSource.getMessage("bot.quick-input-ask-category", null, locale),
+                    buildCategoryKeyboard(typedCategories(userId, o.type()), locale, "J" + o.draftId(), "P" + o.draftId(), 0),
+                    "bot.quick-input-ask-category");
+            case HumoImport.Outcome.NeedsDuplicateConfirm o -> sendSafely(
+                    chatId, humoImportDuplicateAskText(o, locale), humoImportDuplicateButtons(locale, o.draftId()),
+                    "bot.humo-import-ask-duplicate");
+            case HumoImport.Outcome.Booked o -> sendSafely(chatId, humoImportBookedText(userId, locale, o), null, "bot.humo-import-booked");
+            case HumoImport.Outcome.Skipped o -> reply(chatId, locale, "bot.humo-import-skipped-duplicate");
+        }
+    }
+
+    private void renderHumoImportOutcome(UUID userId, Locale locale, long chatId, int messageId, HumoImport.Outcome outcome) {
+        switch (outcome) {
+            case HumoImport.Outcome.NeedsCardLink o -> telegramGateway.editMessageText(
+                    chatId, messageId, humoImportAccountAskText(o.cardLast4(), o.type(), o.amount(), o.merchantRaw(), locale),
+                    humoImportAccountButtons(userId, locale, "Q" + o.draftId()));
+            case HumoImport.Outcome.NeedsP2pChoice o -> telegramGateway.editMessageText(
+                    chatId, messageId, humoImportP2pAskText(o, locale), humoImportP2pButtons(locale, o.draftId()));
+            case HumoImport.Outcome.NeedsP2pAccount o -> telegramGateway.editMessageText(
+                    chatId, messageId, messageSource.getMessage("bot.humo-import-ask-p2p-account", null, locale),
+                    humoImportAccountButtons(userId, locale, "Q" + o.draftId()));
+            case HumoImport.Outcome.NeedsLoanPick o -> telegramGateway.editMessageText(
+                    chatId, messageId, humoImportLoanAskText(o, locale), humoImportLoanButtons(userId, locale, o.draftId()));
+            case HumoImport.Outcome.NeedsCategory o -> telegramGateway.editMessageText(
+                    chatId, messageId, messageSource.getMessage("bot.quick-input-ask-category", null, locale),
+                    buildCategoryKeyboard(typedCategories(userId, o.type()), locale, "J" + o.draftId(), "P" + o.draftId(), 0));
+            case HumoImport.Outcome.NeedsDuplicateConfirm o -> telegramGateway.editMessageText(
+                    chatId, messageId, humoImportDuplicateAskText(o, locale), humoImportDuplicateButtons(locale, o.draftId()));
+            case HumoImport.Outcome.Booked o -> telegramGateway.editMessageText(chatId, messageId, humoImportBookedText(userId, locale, o), null);
+            case HumoImport.Outcome.Skipped o -> telegramGateway.editMessageText(
+                    chatId, messageId, messageSource.getMessage("bot.humo-import-skipped-duplicate", null, locale), null);
+        }
+    }
+
+    private String humoImportAccountAskText(String cardLast4, TransactionType type, BigDecimal amount, String merchantRaw, Locale locale) {
+        String amountText = humoImportSignedAmount(type, amount, locale);
+        return messageSource.getMessage("bot.humo-import-ask-account", new Object[]{cardLast4, amountText, merchantRaw}, locale);
+    }
+
+    private String humoImportP2pAskText(HumoImport.Outcome.NeedsP2pChoice o, Locale locale) {
+        String amountText = humoImportSignedAmount(o.type(), o.amount(), locale);
+        return messageSource.getMessage("bot.humo-import-ask-p2p", new Object[]{o.merchantRaw(), amountText}, locale);
+    }
+
+    private String humoImportLoanAskText(HumoImport.Outcome.NeedsLoanPick o, Locale locale) {
+        String amountText = moneyFormatter.formatBare(Money.of(o.amount()), locale);
+        return messageSource.getMessage("bot.humo-import-ask-debt", new Object[]{o.merchantRaw(), amountText}, locale);
+    }
+
+    private String humoImportDuplicateAskText(HumoImport.Outcome.NeedsDuplicateConfirm o, Locale locale) {
+        String amountText = humoImportSignedAmount(o.type(), o.amount(), locale);
+        return messageSource.getMessage("bot.humo-import-ask-duplicate", new Object[]{o.merchantRaw(), amountText}, locale);
+    }
+
+    private String humoImportSignedAmount(TransactionType type, BigDecimal amount, Locale locale) {
+        String sign = type == TransactionType.INCOME ? "+" : "-";
+        return sign + moneyFormatter.formatBare(Money.of(amount), locale);
+    }
+
+    private String humoImportBookedText(UUID userId, Locale locale, HumoImport.Outcome.Booked o) {
+        String amountText = moneyFormatter.format(Money.of(o.amount()), locale);
+        return switch (o.type()) {
+            case TRANSFER -> messageSource.getMessage("bot.humo-import-booked-transfer", new Object[]{amountText}, locale);
+            case DEBT_PAYMENT -> messageSource.getMessage("bot.humo-import-booked-debt", new Object[]{amountText}, locale);
+            case EXPENSE, INCOME -> humoImportSavedConfirmationText(userId, locale, o.transactionId());
+        };
+    }
+
+    private String humoImportSavedConfirmationText(UUID userId, Locale locale, UUID transactionId) {
+        Transactions.BotTransaction saved = transactions.find(userId, transactionId).orElseThrow();
+        String accountName = accounts.listForUser(userId).stream()
+                .filter(a -> a.id().equals(saved.accountId())).findFirst().map(Accounts.AccountView::name).orElse("");
+        String categoryLabel = categoryLabel(userId, saved.categoryId(), locale);
+        String amountText = moneyFormatter.format(Money.of(saved.amount()), locale);
+        if (saved.type() == TransactionType.EXPENSE) {
+            BigDecimal todayTotal = transactions.summarize(userId, userProfiles.zoneOf(userId)).todayTotal();
+            String text = messageSource.getMessage("bot.quick-input-saved-expense",
+                    new Object[]{amountText, categoryLabel, accountName, moneyFormatter.format(Money.of(todayTotal), locale)}, locale);
+            return appendTodayLeftLine(text, userId, locale);
+        }
+        return messageSource.getMessage("bot.quick-input-saved-income", new Object[]{amountText, categoryLabel, accountName}, locale);
+    }
+
+    private InlineKeyboardMarkup humoImportAccountButtons(UUID userId, Locale locale, String pickPrefix) {
+        List<Accounts.AccountView> userAccountViews = accounts.listForUser(userId);
+        List<InlineKeyboardRow> rows = new ArrayList<>();
+        for (int i = 0; i < userAccountViews.size(); i++) {
+            rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder()
+                    .text(userAccountViews.get(i).name())
+                    .callbackData(pickPrefix + "." + i)
+                    .build()));
+        }
+        InlineKeyboardButton newAccount = InlineKeyboardButton.builder()
+                .text(messageSource.getMessage("bot.humo-import-new-account-button", null, locale))
+                .webApp(new WebAppInfo(properties.miniAppUrl()))
+                .build();
+        rows.add(new InlineKeyboardRow(newAccount));
+        return new InlineKeyboardMarkup(rows);
+    }
+
+    private InlineKeyboardMarkup humoImportP2pButtons(Locale locale, UUID draftId) {
+        InlineKeyboardButton own = InlineKeyboardButton.builder()
+                .text(messageSource.getMessage("bot.humo-import-button-own-transfer", null, locale))
+                .callbackData("R" + draftId + ".0")
+                .build();
+        InlineKeyboardButton expense = InlineKeyboardButton.builder()
+                .text(messageSource.getMessage("bot.humo-import-button-expense", null, locale))
+                .callbackData("R" + draftId + ".1")
+                .build();
+        InlineKeyboardButton income = InlineKeyboardButton.builder()
+                .text(messageSource.getMessage("bot.humo-import-button-income", null, locale))
+                .callbackData("R" + draftId + ".2")
+                .build();
+        return new InlineKeyboardMarkup(List.of(new InlineKeyboardRow(own), new InlineKeyboardRow(expense, income)));
+    }
+
+    private InlineKeyboardMarkup humoImportLoanButtons(UUID userId, Locale locale, UUID draftId) {
+        List<Debts.DebtView> active = debts.listForUser(userId).stream().filter(d -> d.status() == DebtStatus.ACTIVE).toList();
+        List<InlineKeyboardRow> rows = new ArrayList<>();
+        for (int i = 0; i < active.size(); i++) {
+            rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder()
+                    .text(active.get(i).name())
+                    .callbackData("S" + draftId + "." + i)
+                    .build()));
+        }
+        rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder()
+                .text(messageSource.getMessage("bot.humo-import-category-instead-button", null, locale))
+                .callbackData("S" + draftId + ".-1")
+                .build()));
+        return new InlineKeyboardMarkup(rows);
+    }
+
+    private InlineKeyboardMarkup humoImportDuplicateButtons(Locale locale, UUID draftId) {
+        InlineKeyboardButton notDuplicate = InlineKeyboardButton.builder()
+                .text(messageSource.getMessage("bot.humo-import-button-not-duplicate", null, locale))
+                .callbackData("V" + draftId + ".0")
+                .build();
+        InlineKeyboardButton duplicate = InlineKeyboardButton.builder()
+                .text(messageSource.getMessage("bot.humo-import-button-duplicate", null, locale))
+                .callbackData("V" + draftId + ".1")
+                .build();
+        return new InlineKeyboardMarkup(List.of(new InlineKeyboardRow(notDuplicate, duplicate)));
+    }
+
+    private void handleHumoImportAccountPick(UUID userId, Locale locale, long chatId, int messageId, String payload) {
+        IdAndInt ref = parseIdAndInt(payload);
+        List<Accounts.AccountView> userAccountViews = accounts.listForUser(userId);
+        if (ref.value() < 0 || ref.value() >= userAccountViews.size()) {
+            return;
+        }
+        UUID accountId = userAccountViews.get(ref.value()).id();
+        Optional<HumoImport.Outcome> outcome = humoImport.chooseAccount(userId, ref.id(), accountId, categoryMemoryLookup(userId));
+        if (outcome.isEmpty()) {
+            outcome = humoImport.chooseP2pAccount(userId, ref.id(), accountId);
+        }
+        outcome.ifPresent(o -> renderHumoImportOutcome(userId, locale, chatId, messageId, o));
+    }
+
+    private void handleHumoImportP2pChoice(UUID userId, Locale locale, long chatId, int messageId, String payload) {
+        IdAndInt ref = parseIdAndInt(payload);
+        HumoImport.P2pChoice choice = switch (ref.value()) {
+            case 0 -> HumoImport.P2pChoice.OWN_TRANSFER;
+            case 1 -> HumoImport.P2pChoice.EXPENSE;
+            case 2 -> HumoImport.P2pChoice.INCOME;
+            default -> null;
+        };
+        if (choice == null) {
+            return;
+        }
+        humoImport.chooseP2p(userId, ref.id(), choice, categoryMemoryLookup(userId))
+                .ifPresent(o -> renderHumoImportOutcome(userId, locale, chatId, messageId, o));
+    }
+
+    private void handleHumoImportLoanPick(UUID userId, Locale locale, long chatId, int messageId, String payload) {
+        IdAndInt ref = parseIdAndInt(payload);
+        UUID debtId = null;
+        if (ref.value() >= 0) {
+            List<Debts.DebtView> active = debts.listForUser(userId).stream().filter(d -> d.status() == DebtStatus.ACTIVE).toList();
+            if (ref.value() >= active.size()) {
+                return;
+            }
+            debtId = active.get(ref.value()).id();
+        }
+        humoImport.pickDebt(userId, ref.id(), debtId, categoryMemoryLookup(userId))
+                .ifPresent(o -> renderHumoImportOutcome(userId, locale, chatId, messageId, o));
+    }
+
+    private void handleHumoImportCategoryPick(UUID userId, Locale locale, long chatId, int messageId, String payload) {
+        IdAndInt ref = parseIdAndInt(payload);
+        Optional<HumoImport.CategoryQuestion> question = humoImport.findCategoryQuestion(userId, ref.id());
+        if (question.isEmpty()) {
+            return;
+        }
+        List<Categories.CategoryView> typed = typedCategories(userId, question.get().type());
+        if (ref.value() < 0 || ref.value() >= typed.size()) {
+            return;
+        }
+        UUID categoryId = typed.get(ref.value()).id();
+        Optional<HumoImport.Outcome> outcome = humoImport.pickCategory(userId, ref.id(), categoryId);
+        if (outcome.isEmpty()) {
+            return;
+        }
+        rememberMerchantCategory(userId, question.get().merchantKey(), categoryId);
+        renderHumoImportOutcome(userId, locale, chatId, messageId, outcome.get());
+    }
+
+    private void handleHumoImportCategoryPage(UUID userId, Locale locale, long chatId, int messageId, String payload) {
+        IdAndInt ref = parseIdAndInt(payload);
+        Optional<HumoImport.CategoryQuestion> question = humoImport.findCategoryQuestion(userId, ref.id());
+        if (question.isEmpty()) {
+            return;
+        }
+        List<Categories.CategoryView> typed = typedCategories(userId, question.get().type());
+        InlineKeyboardMarkup markup = buildCategoryKeyboard(typed, locale, "J" + ref.id(), "P" + ref.id(), ref.value());
+        telegramGateway.editMessageText(chatId, messageId, messageSource.getMessage("bot.quick-input-ask-category", null, locale), markup);
+    }
+
+    private void handleHumoImportDuplicateChoice(UUID userId, Locale locale, long chatId, int messageId, String payload) {
+        IdAndInt ref = parseIdAndInt(payload);
+        boolean isDuplicate = ref.value() == 1;
+        humoImport.confirmDuplicate(userId, ref.id(), isDuplicate)
+                .ifPresent(o -> renderHumoImportOutcome(userId, locale, chatId, messageId, o));
     }
 
     // ---- debt quick input / commands (PRD M8) ----
@@ -756,6 +1035,12 @@ class TelegramUpdateService {
                 case 'G' -> handleHumoChooseAccount(userId, locale, chatId, messageId, UUID.fromString(payload));
                 case 'H' -> handleHumoLinkPick(userId, locale, chatId, messageId, payload);
                 case 'I' -> handleHumoIgnore(userId, locale, chatId, messageId, UUID.fromString(payload));
+                case 'J' -> handleHumoImportCategoryPick(userId, locale, chatId, messageId, payload);
+                case 'P' -> handleHumoImportCategoryPage(userId, locale, chatId, messageId, payload);
+                case 'Q' -> handleHumoImportAccountPick(userId, locale, chatId, messageId, payload);
+                case 'R' -> handleHumoImportP2pChoice(userId, locale, chatId, messageId, payload);
+                case 'S' -> handleHumoImportLoanPick(userId, locale, chatId, messageId, payload);
+                case 'V' -> handleHumoImportDuplicateChoice(userId, locale, chatId, messageId, payload);
                 default -> { }
             }
         } catch (IllegalArgumentException ex) {

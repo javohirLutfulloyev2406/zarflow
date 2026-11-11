@@ -1,6 +1,7 @@
 package uz.zarflow.transaction;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -35,6 +36,22 @@ public interface Transactions {
      * principal/interest split that matters for analytics lives in debt_payments, not here.
      * Idempotent on {@code input.idempotencyKey()}. */
     BotTransaction createFromDebtPayment(UUID userId, DebtPaymentCreateInput input);
+
+    /** For the Humo bank-import module (docs/PRD.md §2/§4) -- books a plain EXPENSE/INCOME
+     * tagged source BANK_IMPORT, so the "possible manual duplicate" check and analytics can
+     * both tell it apart from a hand-entered row. Idempotent on {@code input.idempotencyKey()}. */
+    BotTransaction createFromBankImport(UUID userId, BankImportCreateInput input);
+
+    /** For the Humo bank-import module's P2P "own account" case (docs/PRD.md §4) -- books a
+     * plain TRANSFER between two of the user's own accounts, source BANK_IMPORT, never
+     * income or expense. */
+    BankImportTransferResult createTransferFromBankImport(UUID userId, BankImportTransferInput input);
+
+    /** Existing transaction with {@code source != BANK_IMPORT}, same type/amount, whose
+     * {@code transactionDate} falls within {@code window} of {@code around} -- the Humo
+     * import module's "possible manual duplicate" check (docs/PRD.md §5). */
+    Optional<BotTransaction> findPossibleManualDuplicate(
+            UUID userId, TransactionType type, BigDecimal amount, Instant around, Duration window);
 
     /** Used by the bot's "Kategoriya" button and the low-confidence category pick. */
     BotTransaction updateCategory(UUID userId, UUID transactionId, UUID categoryId);
@@ -108,6 +125,18 @@ public interface Transactions {
     }
 
     record DebtPaymentCreateInput(UUID accountId, BigDecimal amount, String description, String idempotencyKey) {
+    }
+
+    record BankImportCreateInput(
+            UUID accountId, UUID categoryId, TransactionType type, BigDecimal amount,
+            String description, String idempotencyKey, Instant transactionDate) {
+    }
+
+    record BankImportTransferInput(
+            UUID fromAccountId, UUID toAccountId, BigDecimal amount, String description, Instant transactionDate) {
+    }
+
+    record BankImportTransferResult(UUID transferGroupId) {
     }
 
     /** Contributing to or withdrawing from a savings goal is a TRANSFER between two of the
