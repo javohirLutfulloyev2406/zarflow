@@ -20,7 +20,10 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
+
+import uz.zarflow.telegram.AdminAlerter;
 
 /**
  * @Order(HIGHEST_PRECEDENCE): with spring.mvc.problemdetails.enabled=true, Spring's
@@ -37,9 +40,11 @@ class GlobalExceptionHandler {
     private static final String PROBLEM_BASE_URI = "https://zarflow.uz/problems/";
 
     private final MessageSource messageSource;
+    private final AdminAlerter adminAlerter;
 
-    GlobalExceptionHandler(MessageSource messageSource) {
+    GlobalExceptionHandler(MessageSource messageSource, AdminAlerter adminAlerter) {
         this.messageSource = messageSource;
+        this.adminAlerter = adminAlerter;
     }
 
     @ExceptionHandler(NotFoundException.class)
@@ -91,9 +96,10 @@ class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    ProblemDetail handleUnexpected(Exception ex, Locale locale) {
+    ProblemDetail handleUnexpected(Exception ex, Locale locale, HttpServletRequest request) {
         String requestId = MDC.get("requestId");
         log.error("Unhandled exception, requestId={}", requestId, ex);
+        adminAlerter.alert("endpoint " + request.getMethod() + " " + request.getRequestURI(), ex);
 
         ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR);
         problemDetail.setTitle(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase());

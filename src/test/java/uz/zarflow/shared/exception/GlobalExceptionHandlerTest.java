@@ -10,9 +10,11 @@ import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import uz.zarflow.shared.config.LocaleConfig;
+import uz.zarflow.telegram.AdminAlerter;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -33,6 +35,11 @@ class GlobalExceptionHandlerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    /** GlobalExceptionHandler reports unhandled exceptions here -- this slice doesn't
+     * load the real telegram module, so it needs a stub to resolve the dependency. */
+    @MockitoBean
+    private AdminAlerter adminAlerter;
 
     @TestConfiguration
     static class PermitAllSecurityConfig {

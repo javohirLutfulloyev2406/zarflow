@@ -27,10 +27,12 @@ class TelegramWebhookController {
 
     private final ObjectMapper objectMapper;
     private final TelegramUpdateService updateService;
+    private final AdminAlerter adminAlerter;
 
-    TelegramWebhookController(ObjectMapper objectMapper, TelegramUpdateService updateService) {
+    TelegramWebhookController(ObjectMapper objectMapper, TelegramUpdateService updateService, AdminAlerter adminAlerter) {
         this.objectMapper = objectMapper;
         this.updateService = updateService;
+        this.adminAlerter = adminAlerter;
     }
 
     @PostMapping(WEBHOOK_PATH)
@@ -40,6 +42,7 @@ class TelegramWebhookController {
             updateService.handle(update);
         } catch (Exception ex) {
             log.error("Webhook processing failed, requestId={}", MDC.get("requestId"), ex);
+            adminAlerter.alert("webhook", ex);
         }
         return ResponseEntity.ok().build();
     }

@@ -17,7 +17,7 @@ class TelegramWebhookGuardFilterTests {
 
     private final TelegramBotProperties properties = new TelegramBotProperties(
             "token", CORRECT_SECRET, "https://example.test/webhook", "https://example.test/app", false,
-            Duration.ofSeconds(5), Duration.ofSeconds(10));
+            Duration.ofSeconds(5), Duration.ofSeconds(10), null);
 
     private final TelegramWebhookGuardFilter filter = new TelegramWebhookGuardFilter(properties);
 

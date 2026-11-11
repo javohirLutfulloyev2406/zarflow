@@ -116,3 +116,51 @@ yopadi.** Shuning uchun:
   chiqargan `rsync` buyrug'ini laptopingizda kunlik ishga tushiring).
 - 5-oyga yetmasdan oldin **Paid plan**ga o'tish yoki boshqa providerga
   ko'chirish haqida qaror qabul qiling.
+
+## 6. Auto-deploy & alerts
+
+`main`'ga merge qilingandan keyin server **o'zi** yangi image'larni tortib
+oladi -- GitHub'dan hech narsa SSH orqali serverga ulanmaydi, server har 2
+daqiqada o'zi tekshirib turadi (pull-based). Shu bilan birga backend
+kutilmagan xatolar, scheduler ishlamay qolishi va server holati haqida sizga
+Telegram orqali xabar beradi.
+
+**Chat id'ingizni olish:**
+Telegramda @userinfobot (yoki @RawDataBot) ga yozing -- u sizga `id` qiymatini
+qaytaradi. Shu raqamni `.env.prod` faylida `ZARFLOW_ADMIN_CHAT_ID` ga yozing.
+Bo'sh qoldirilsa, hamma xabarlar o'chirilgan bo'ladi (ilovaning o'ziga
+ta'sir qilmaydi).
+
+**O'rnatish** (bir marta, `.env.prod` to'ldirilgandan keyin):
+```bash
+sudo ~/zarflow/scripts/install-autodeploy.sh
+```
+Bu ikki systemd timer qo'yadi: `zarflow-autodeploy` (har 2 daqiqada -- git +
+image tekshiradi, o'zgarish bo'lsa `scripts/deploy.sh`ni ishga tushiradi,
+sog'lik tekshiruvi muvaffaqiyatsiz bo'lsa avtomatik oldingi versiyaga
+qaytaradi) va `zarflow-watchdog` (har 5 daqiqada -- health/disk/xotira/backup
+holatini tekshiradi).
+
+**Auto-deploy'ni to'xtatish** (masalan qo'lda nozik o'zgarish qilayotganda):
+```bash
+sudo systemctl stop zarflow-autodeploy.timer
+# qayta yoqish: sudo systemctl start zarflow-autodeploy.timer
+```
+
+**Ma'lum bir git sha'ni qo'lda deploy qilish** (rollback yoki oldinga
+o'tish, auto-deploy'dan mustaqil ravishda ham ishlaydi):
+```bash
+cd ~/zarflow
+scripts/deploy.sh <git-sha>   # yoki argumentsiz -- .env.prod'dagi IMAGE_TAG
+```
+
+**Loglarni ko'rish:**
+```bash
+journalctl -u zarflow-autodeploy -f
+journalctl -u zarflow-watchdog -f
+```
+
+**Nima uchun xabar kelmayapti:** `ZARFLOW_ADMIN_CHAT_ID` bo'sh yoki noto'g'ri,
+yoki bot sizga birinchi marta `/start` yubormagan bo'lishi mumkin (Telegram
+botlar foydalanuvchiga faqat u botga birinchi yozgandan keyin xabar yuborishi
+mumkin).
