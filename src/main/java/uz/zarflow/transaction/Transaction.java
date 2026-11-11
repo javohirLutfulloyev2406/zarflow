@@ -55,6 +55,10 @@ class Transaction {
 
     private boolean isFixed;
 
+    /** Set only on the two legs of a savings-goal contribution/withdrawal transfer --
+     * never on an EXPENSE/INCOME row, where "linked to a goal" has no meaning. */
+    private UUID linkedGoalId;
+
     @CreationTimestamp
     private Instant createdAt;
 
@@ -109,6 +113,10 @@ class Transaction {
         this.deletedAt = at;
     }
 
+    void linkGoal(UUID goalId) {
+        this.linkedGoalId = goalId;
+    }
+
     UUID getId() {
         return id;
     }
@@ -155,6 +163,10 @@ class Transaction {
 
     UUID getTransferGroupId() {
         return transferGroupId;
+    }
+
+    UUID getLinkedGoalId() {
+        return linkedGoalId;
     }
 
     String getIdempotencyKey() {

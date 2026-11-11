@@ -121,6 +121,12 @@ class BotNotificationsService implements BotNotifications {
             sb.append('\n').append(messageSource.getMessage(
                     "bot.monthly-report-savings", new Object[]{moneyFormatter.format(Money.of(activity.savings()), locale)}, locale));
         }
+        if (activity.goalSavings() != null && activity.goalSavings().signum() > 0) {
+            sb.append('\n').append(messageSource.getMessage(
+                    "bot.monthly-report-goal-savings",
+                    new Object[]{moneyFormatter.format(Money.of(activity.goalSavings()), locale), activity.goalSavingsPercent().toPlainString()},
+                    locale));
+        }
         appendTopCategories(sb, "bot.monthly-report-top-categories", activity.topCategories(), locale);
         if (activity.changeVsPrevMonthPercent() != null) {
             sb.append('\n').append(messageSource.getMessage(
@@ -137,6 +143,7 @@ class BotNotificationsService implements BotNotifications {
             case STREAK_30 -> "bot.achievement-streak-30";
             case LIMIT_WEEK -> "bot.achievement-limit-week";
             case FULL_MONTH -> "bot.achievement-full-month";
+            case FIRST_GOAL -> "bot.achievement-first-goal";
         };
         sendSafely(telegramId, messageSource.getMessage(key, null, locale), appButtonOnly(locale));
     }

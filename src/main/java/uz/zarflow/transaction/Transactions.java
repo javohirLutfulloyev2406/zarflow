@@ -110,6 +110,31 @@ public interface Transactions {
     record DebtPaymentCreateInput(UUID accountId, BigDecimal amount, String description, String idempotencyKey) {
     }
 
+    /** Contributing to or withdrawing from a savings goal is a TRANSFER between two of the
+     * user's own accounts — never income or expense (PRD M9) — with both legs tagged with
+     * the goal so later queries can isolate "how much has been saved toward this goal". */
+    GoalTransferResult transferForGoal(UUID userId, GoalTransferInput input);
+
+    /** Net amount currently attributable to this goal: the sum of every linked leg booked
+     * on {@code goalAccountId} (positive = contributions, negative = withdrawals). */
+    BigDecimal goalSavedAmount(UUID userId, UUID goalId, UUID goalAccountId);
+
+    /** This goal's contribution/withdrawal history (its own account's leg only), newest first. */
+    List<GoalTransferEntry> goalHistory(UUID userId, UUID goalId, UUID goalAccountId);
+
+    /** Net amount moved into the user's SAVINGS accounts via goal-linked transfers this
+     * local month — the monthly report's raw material for "Jamg'arma: X so'm". */
+    BigDecimal monthGoalSavingsNet(UUID userId, ZoneId zone, YearMonth month);
+
+    record GoalTransferInput(UUID fromAccountId, UUID toAccountId, BigDecimal amount, UUID linkedGoalId, String description) {
+    }
+
+    record GoalTransferResult(UUID transferGroupId) {
+    }
+
+    record GoalTransferEntry(UUID id, Instant transactionDate, BigDecimal amount) {
+    }
+
     record PeriodAnalytics(
             BigDecimal income,
             BigDecimal expense,

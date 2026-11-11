@@ -42,7 +42,8 @@ public interface BotNotifications {
 
     record MonthlyReportActivity(
             YearMonth month, BigDecimal income, BigDecimal expense, BigDecimal net, BigDecimal debtPayments,
-            BigDecimal savings, List<CategoryShare> topCategories, BigDecimal changeVsPrevMonthPercent) {
+            BigDecimal savings, List<CategoryShare> topCategories, BigDecimal changeVsPrevMonthPercent,
+            BigDecimal goalSavings, BigDecimal goalSavingsPercent) {
     }
 
 }

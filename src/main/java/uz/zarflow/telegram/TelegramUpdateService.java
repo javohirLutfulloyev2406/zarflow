@@ -44,6 +44,7 @@ import uz.zarflow.debt.DebtStatus;
 import uz.zarflow.debt.Debts;
 import uz.zarflow.habit.Habits;
 import uz.zarflow.recurring.Recurring;
+import uz.zarflow.savings.Savings;
 import uz.zarflow.shared.common.DateRange;
 import uz.zarflow.shared.common.Money;
 import uz.zarflow.shared.common.MoneyFormatter;
@@ -71,6 +72,7 @@ class TelegramUpdateService {
     private final Recurring recurring;
     private final Debts debts;
     private final Habits habits;
+    private final Savings savings;
     private final UserParsingMemoryRepository parsingMemoryRepository;
     private final TelegramPendingEntryRepository pendingEntryRepository;
     private final TelegramGateway telegramGateway;
@@ -92,6 +94,7 @@ class TelegramUpdateService {
             Recurring recurring,
             Debts debts,
             Habits habits,
+            Savings savings,
             UserParsingMemoryRepository parsingMemoryRepository,
             TelegramPendingEntryRepository pendingEntryRepository,
             TelegramGateway telegramGateway,
@@ -110,6 +113,7 @@ class TelegramUpdateService {
         this.recurring = recurring;
         this.debts = debts;
         this.habits = habits;
+        this.savings = savings;
         this.parsingMemoryRepository = parsingMemoryRepository;
         this.pendingEntryRepository = pendingEntryRepository;
         this.telegramGateway = telegramGateway;
@@ -287,6 +291,33 @@ class TelegramUpdateService {
 
         String text = messageSource.getMessage(
                 "bot.debt-paid", new Object[]{moneyFormatter.format(Money.of(amount), locale), debt.name()}, locale);
+        telegramGateway.editMessageText(chatId, messageId, text, null);
+    }
+
+    private void handleLeftoverToGoal(UUID userId, Locale locale, long chatId, int messageId, YearMonth month) {
+        Savings.LeftoverOfferView offer = savings.resolve(
+                userId, month, new Savings.Resolution(Savings.ResolutionType.TO_GOAL, null, null));
+        String text = messageSource.getMessage(
+                "bot.leftover-to-goal-ack", new Object[]{moneyFormatter.format(Money.of(offer.amount()), locale)}, locale);
+        telegramGateway.editMessageText(chatId, messageId, text, null);
+    }
+
+    private void handleLeftoverToDebt(UUID userId, Locale locale, long chatId, int messageId, YearMonth month) {
+        Savings.LeftoverOfferView offer = savings.resolve(
+                userId, month, new Savings.Resolution(Savings.ResolutionType.TO_DEBT, null, null));
+        String text = messageSource.getMessage(
+                "bot.leftover-to-debt-ack", new Object[]{moneyFormatter.format(Money.of(offer.amount()), locale)}, locale);
+        telegramGateway.editMessageText(chatId, messageId, text, null);
+    }
+
+    private void handleLeftoverStayInApp(Locale locale, long chatId, int messageId) {
+        String text = messageSource.getMessage("bot.leftover-stay-in-app-ack", null, locale);
+        telegramGateway.editMessageText(chatId, messageId, text, null);
+    }
+
+    private void handleLeftoverDismiss(UUID userId, Locale locale, long chatId, int messageId, YearMonth month) {
+        savings.resolve(userId, month, new Savings.Resolution(Savings.ResolutionType.DISMISSED, null, null));
+        String text = messageSource.getMessage("bot.leftover-dismissed-ack", null, locale);
         telegramGateway.editMessageText(chatId, messageId, text, null);
     }
 
@@ -546,6 +577,10 @@ class TelegramUpdateService {
                 case 'U' -> handleRecurringSkip(userId, locale, chatId, messageId, UUID.fromString(payload));
                 case 'W' -> handleRecurringAck(chatId, messageId, locale);
                 case 'D' -> handleDebtPay(userId, locale, chatId, messageId, payload);
+                case 'L' -> handleLeftoverToGoal(userId, locale, chatId, messageId, YearMonth.parse(payload));
+                case 'E' -> handleLeftoverToDebt(userId, locale, chatId, messageId, YearMonth.parse(payload));
+                case 'B' -> handleLeftoverStayInApp(locale, chatId, messageId);
+                case 'T' -> handleLeftoverDismiss(userId, locale, chatId, messageId, YearMonth.parse(payload));
                 default -> { }
             }
         } catch (IllegalArgumentException ex) {

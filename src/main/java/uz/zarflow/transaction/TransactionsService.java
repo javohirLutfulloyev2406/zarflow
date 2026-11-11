@@ -31,6 +31,7 @@ import jakarta.persistence.criteria.Predicate;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import uz.zarflow.account.AccountType;
 import uz.zarflow.account.Accounts;
 import uz.zarflow.category.CategoryType;
 import uz.zarflow.category.Categories;
@@ -101,6 +102,61 @@ class TransactionsService implements Transactions {
                 userId, input.accountId(), null, TransactionType.DEBT_PAYMENT, input.amount(),
                 null, null, input.description(), TransactionSource.MINI_APP, input.idempotencyKey(), false);
         return toBotTransaction(view);
+    }
+
+    @Override
+    @Transactional
+    public GoalTransferResult transferForGoal(UUID userId, GoalTransferInput input) {
+        if (input.fromAccountId().equals(input.toAccountId())) {
+            throw new BusinessRuleException("transaction.transfer_same_account");
+        }
+        accounts.requireOwned(userId, input.fromAccountId());
+        accounts.requireOwned(userId, input.toAccountId());
+        Instant transactionDate = Instant.now(clock);
+
+        UUID transferGroupId = UUID.randomUUID();
+        Transaction outgoing = new Transaction(
+                userId, input.fromAccountId(), null, TransactionType.TRANSFER, input.amount().negate(), null,
+                transactionDate, input.description(), TransactionSource.MINI_APP, transferGroupId, null, false);
+        Transaction incoming = new Transaction(
+                userId, input.toAccountId(), null, TransactionType.TRANSFER, input.amount(), null,
+                transactionDate, input.description(), TransactionSource.MINI_APP, transferGroupId, null, false);
+        outgoing.linkGoal(input.linkedGoalId());
+        incoming.linkGoal(input.linkedGoalId());
+        transactionRepository.save(outgoing);
+        transactionRepository.save(incoming);
+        audit(outgoing.getId(), TransactionAuditAction.CREATE, null, outgoing);
+        audit(incoming.getId(), TransactionAuditAction.CREATE, null, incoming);
+
+        return new GoalTransferResult(transferGroupId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BigDecimal goalSavedAmount(UUID userId, UUID goalId, UUID goalAccountId) {
+        return transactionRepository.sumLinkedGoalAmount(userId, goalAccountId, goalId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<GoalTransferEntry> goalHistory(UUID userId, UUID goalId, UUID goalAccountId) {
+        return transactionRepository.findLinkedGoalHistory(userId, goalAccountId, goalId).stream()
+                .map(t -> new GoalTransferEntry(t.getId(), t.getTransactionDate(), t.getAmount()))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BigDecimal monthGoalSavingsNet(UUID userId, ZoneId zone, YearMonth month) {
+        List<UUID> savingsAccountIds = accounts.listForUser(userId).stream()
+                .filter(a -> a.type() == AccountType.SAVINGS)
+                .map(Accounts.AccountView::id)
+                .toList();
+        if (savingsAccountIds.isEmpty()) {
+            return BigDecimal.ZERO.setScale(2);
+        }
+        DateRange.InstantRange range = DateRange.ofMonth(month).toInstantRange(zone);
+        return transactionRepository.sumGoalSavingsInRange(userId, savingsAccountIds, range.startInclusive(), range.endExclusive());
     }
 
     private TransactionView createInternal(
