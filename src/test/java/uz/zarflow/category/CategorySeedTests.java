@@ -27,14 +27,29 @@ class CategorySeedTests {
     private JdbcTemplate jdbcTemplate;
 
     @Test
-    void seedsExactlyFifteenExpenseAndEightIncomeSystemCategories() {
+    void seedsExactlySixteenExpenseAndNineIncomeSystemCategories() {
+        // 15/8 user-facing (V5) + 1/1 hidden Humo-correction bookkeeping categories (V21).
         Integer expenseCount = jdbcTemplate.queryForObject(
                 "select count(*) from categories where user_id is null and type = 'EXPENSE'", Integer.class);
         Integer incomeCount = jdbcTemplate.queryForObject(
                 "select count(*) from categories where user_id is null and type = 'INCOME'", Integer.class);
 
-        assertThat(expenseCount).isEqualTo(15);
-        assertThat(incomeCount).isEqualTo(8);
+        assertThat(expenseCount).isEqualTo(16);
+        assertThat(incomeCount).isEqualTo(9);
+    }
+
+    @Test
+    void hiddenCorrectionCategoriesAreExcludedFromTheUserFacingPicker() {
+        UUID userId = jdbcTemplate.queryForObject(
+                "insert into users (telegram_id) values (?) returning id",
+                UUID.class,
+                ThreadLocalRandom.current().nextLong());
+
+        List<Category> visible = categoryRepository.findVisibleForUser(userId);
+
+        assertThat(visible).noneMatch(c -> "tuzatish_exp".equals(c.getCode()) || "tuzatish_inc".equals(c.getCode()));
+        assertThat(categoryRepository.findSystemByCode("tuzatish_exp")).isPresent();
+        assertThat(categoryRepository.findSystemByCode("tuzatish_inc")).isPresent();
     }
 
     @Test

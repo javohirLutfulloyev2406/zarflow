@@ -1,6 +1,7 @@
 package uz.zarflow.category;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -17,6 +18,11 @@ public interface Categories {
 
     /** System categories plus this user's own, with their matching keywords — for the bot's quick-input parser. */
     List<CategoryKeywords> keywordsForUser(UUID userId);
+
+    /** A system category's id by its well-known code (e.g. "interest", "tuzatish_exp"),
+     * hidden-from-the-picker ones included -- for modules that book a transaction against a
+     * specific system category directly rather than through {@link #listForUser}. */
+    Optional<UUID> systemCategoryIdByCode(String code);
 
     record CategoryKeywords(UUID id, String nameUz, String nameRu, CategoryType type, List<String> keywords) {
     }

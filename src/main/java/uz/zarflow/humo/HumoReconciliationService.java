@@ -92,7 +92,7 @@ class HumoReconciliationService implements HumoReconciliation {
         }
 
         TransactionType type = diff.signum() > 0 ? TransactionType.INCOME : TransactionType.EXPENSE;
-        UUID categoryId = resolveCategoryId(userId, type == TransactionType.INCOME ? TUZATISH_INCOME_CODE : TUZATISH_EXPENSE_CODE);
+        UUID categoryId = resolveCategoryId(type == TransactionType.INCOME ? TUZATISH_INCOME_CODE : TUZATISH_EXPENSE_CODE);
         String idempotencyKey = "humo:" + draft.getAccountId() + ":" + draft.getAsOf();
         var input = new Transactions.BotCreateInput(
                 draft.getAccountId(), categoryId, type, diff.abs(), null, CORRECTION_DESCRIPTION, idempotencyKey, draft.getAsOf());
@@ -151,11 +151,10 @@ class HumoReconciliationService implements HumoReconciliation {
         return draftRepository.save(new HumoReconciliationDraft(userId, accountId, cardLast4, bankBalance, asOf)).getId();
     }
 
-    private UUID resolveCategoryId(UUID userId, String code) {
-        return categories.listForUser(userId).stream()
-                .filter(c -> code.equals(c.code()))
-                .map(Categories.CategoryView::id)
-                .findFirst()
+    private UUID resolveCategoryId(String code) {
+        // Not categories.listForUser(userId) -- tuzatish_exp/tuzatish_inc are hidden-from-the-
+        // picker system categories (V21__seed_tuzatish_categories.sql), resolved by code directly.
+        return categories.systemCategoryIdByCode(code)
                 .orElseThrow(() -> new IllegalStateException("Missing system category: " + code));
     }
 

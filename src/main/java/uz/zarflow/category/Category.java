@@ -50,6 +50,11 @@ class Category {
 
     private boolean fixedDefault;
 
+    /** True for system categories that exist purely for internal bookkeeping (e.g. Humo
+     * balance-reconciliation corrections, docs/PRD.md §7) -- usable by id, but never offered
+     * in the user-facing picker. See {@link CategoryRepository#findVisibleForUser}. */
+    private boolean hidden;
+
     private Instant archivedAt;
 
     @CreationTimestamp
@@ -121,6 +126,10 @@ class Category {
 
     boolean isFixedDefault() {
         return fixedDefault;
+    }
+
+    boolean isHidden() {
+        return hidden;
     }
 
     Instant getArchivedAt() {
