@@ -2,6 +2,7 @@ package uz.zarflow.transaction;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -67,5 +68,30 @@ interface TransactionRepository extends Repository<Transaction, UUID>, JpaSpecif
 
         BigDecimal getTotal();
     }
+
+    @Query("""
+            select coalesce(sum(t.amount), 0) from Transaction t
+            where t.userId = :userId and t.accountId = :accountId and t.linkedGoalId = :goalId
+              and t.deletedAt is null
+            """)
+    BigDecimal sumLinkedGoalAmount(@Param("userId") UUID userId, @Param("accountId") UUID accountId, @Param("goalId") UUID goalId);
+
+    @Query("""
+            select t from Transaction t
+            where t.userId = :userId and t.accountId = :accountId and t.linkedGoalId = :goalId
+              and t.deletedAt is null
+            order by t.transactionDate desc
+            """)
+    List<Transaction> findLinkedGoalHistory(
+            @Param("userId") UUID userId, @Param("accountId") UUID accountId, @Param("goalId") UUID goalId);
+
+    @Query("""
+            select coalesce(sum(t.amount), 0) from Transaction t
+            where t.userId = :userId and t.linkedGoalId is not null and t.accountId in :savingsAccountIds
+              and t.deletedAt is null and t.transactionDate >= :from and t.transactionDate < :to
+            """)
+    BigDecimal sumGoalSavingsInRange(
+            @Param("userId") UUID userId, @Param("savingsAccountIds") Collection<UUID> savingsAccountIds,
+            @Param("from") Instant from, @Param("to") Instant to);
 
 }

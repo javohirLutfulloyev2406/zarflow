@@ -26,6 +26,11 @@ public interface Habits {
      * use that to send a one-time congratulation, never a general "you have N achievements". */
     List<AchievementCode> recomputeAndUnlockAchievements(UUID userId);
 
+    /** For achievements that are event-driven rather than computed from streak data (e.g.
+     * savings' FIRST_GOAL) -- other modules call this directly when their own business event
+     * warrants it. Returns false if the user already had this achievement (no-op, not an error). */
+    boolean unlockAchievement(UUID userId, AchievementCode code);
+
     record HabitSummary(
             int currentStreak, int bestStreak, int daysWithinLimitThisMonth, List<AchievementView> achievements) {
     }

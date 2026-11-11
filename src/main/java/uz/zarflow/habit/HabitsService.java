@@ -122,6 +122,16 @@ class HabitsService implements Habits {
         newlyUnlocked.add(code);
     }
 
+    @Override
+    @Transactional
+    public boolean unlockAchievement(UUID userId, AchievementCode code) {
+        if (achievementRepository.existsByUserIdAndCode(userId, code)) {
+            return false;
+        }
+        achievementRepository.save(new UserAchievement(userId, code));
+        return true;
+    }
+
     private List<DayStatus> buildDays(UUID userId, ZoneId zone, LocalDate today) {
         YearMonth currentMonth = YearMonth.from(today);
         LocalDate previousMonthStart = currentMonth.minusMonths(1).atDay(1);

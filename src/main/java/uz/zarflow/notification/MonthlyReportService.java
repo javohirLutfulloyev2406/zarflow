@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import uz.zarflow.budget.Budgets;
 import uz.zarflow.category.Categories;
+import uz.zarflow.savings.Savings;
 import uz.zarflow.shared.exception.NotFoundException;
 import uz.zarflow.telegram.BotNotifications;
 import uz.zarflow.transaction.TransactionType;
@@ -35,6 +36,7 @@ class MonthlyReportService {
     private final Transactions transactions;
     private final Categories categories;
     private final Budgets budgets;
+    private final Savings savings;
     private final BotNotifications botNotifications;
     private final Clock clock;
 
@@ -44,6 +46,7 @@ class MonthlyReportService {
             Transactions transactions,
             Categories categories,
             Budgets budgets,
+            Savings savings,
             BotNotifications botNotifications,
             Clock clock) {
         this.userProfiles = userProfiles;
@@ -51,6 +54,7 @@ class MonthlyReportService {
         this.transactions = transactions;
         this.categories = categories;
         this.budgets = budgets;
+        this.savings = savings;
         this.botNotifications = botNotifications;
         this.clock = clock;
     }
@@ -84,6 +88,7 @@ class MonthlyReportService {
         }
 
         sendMonthly(user, zone, reportedMonth);
+        savings.evaluateLeftover(user.id(), reportedMonth);
 
         NotificationSettings toSave = settings == null ? new NotificationSettings(user.id()) : settings;
         toSave.markMonthlySent(reportedMonth);
@@ -118,8 +123,11 @@ class MonthlyReportService {
                         .divide(previousExpense, 0, RoundingMode.HALF_UP)
                 : null;
 
+        Savings.MonthSavingsSummary goalSavings = this.savings.monthSummary(user.id(), zone, month);
+
         botNotifications.sendMonthlyReport(user.telegramId(), user.language(), new BotNotifications.MonthlyReportActivity(
-                month, income, expense, net, debtPayments, savings, topCategories, changePercent));
+                month, income, expense, net, debtPayments, savings, topCategories, changePercent,
+                goalSavings.totalSaved(), goalSavings.percentOfIncome()));
     }
 
     private List<BotNotifications.CategoryShare> topCategories(UUID userId, String language, List<Transactions.MonthEntry> entries) {
