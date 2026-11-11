@@ -87,6 +87,27 @@ Instansani to'xtating, turini **t3.small**ga o'zgartiring, qayta ishga tushiring
 -- boshqa hech narsani o'zgartirish shart emas (image'lar, compose fayl,
 volume'lar -- hammasi joyida qoladi).
 
+## 5a. Oracle Cloud (ARM/aarch64, Always Free) uchun farqlar
+
+Yuqoridagi barcha qadamlar bir xil ishlaydi -- image'lar endi `linux/amd64` va
+`linux/arm64` uchun multi-arch qilib chiqariladi, shuning uchun `docker compose
+pull` o'zi to'g'ri arxitekturani tanlaydi. Farq qiladigan joylar:
+
+- **Elastic IP o'rniga**: Oracle'da instansega biriktirilgan **public IP
+  o'zgarmaydi** (reserved IP talab qilinmaydi), lekin uni Networking ->
+  IP Management'dan tasdiqlang.
+- **sslip.io domen**: alohida domen kerak emas -- public IP'ni
+  `<ip-tireshlar-bilan>.sslip.io` ko'rinishiga o'tkazing (masalan
+  `79-76-117-34.sslip.io`). `.env.prod`'da `ZARFLOW_DOMAIN` shu qiymat bo'ladi.
+- **Firewall -- faqat VCN Security List orqali**: `scripts/server-setup.sh`
+  Oracle'ni avtomatik aniqlab, **ufw'ni yoqmaydi**. OCI'da ikki qavatli filtr
+  bor (VCN security list + instansdagi tayyor iptables qoidalari); ufw'ni
+  ustiga yoqish odatiy "o'zingni tashqariga qulflash" xatosi. 22/80/443
+  portlarini **Networking -> Virtual Cloud Network -> Security Lists** orqali
+  oching, ufw emas.
+- **CPU/RAM**: Always Free ARM shape (`VM.Standard.A1.Flex`) 1-4 OCPU / 6-24 GB
+  oralig'ida tanlanadi -- 1 OCPU / 6 GB ham bu stack uchun yetarli.
+
 ## 5. Ogohlantirish
 
 **AWS Free Plan 6 oydan keyin yoki kredit tugaganda akkauntni avtomatik
