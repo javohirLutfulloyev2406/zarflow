@@ -1,4 +1,6 @@
-FROM eclipse-temurin:21-jdk AS build
+# Pinned to the builder's native arch: the jar is architecture-independent bytecode,
+# so there's no reason to run the Gradle build itself under QEMU emulation for arm64.
+FROM --platform=$BUILDPLATFORM eclipse-temurin:21-jdk AS build
 WORKDIR /workspace
 COPY gradlew gradlew.bat ./
 COPY gradle gradle
