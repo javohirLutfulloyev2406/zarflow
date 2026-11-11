@@ -19,4 +19,10 @@ interface TelegramGateway {
 
     void setMyCommands(List<BotCommand> commands, String languageCode);
 
+    void setMyName(String name, String languageCode);
+
+    void setMyShortDescription(String shortDescription, String languageCode);
+
+    void setMyDescription(String description, String languageCode);
+
 }

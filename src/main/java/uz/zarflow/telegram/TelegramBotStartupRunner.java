@@ -1,12 +1,14 @@
 package uz.zarflow.telegram;
 
 import java.util.List;
+import java.util.Locale;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
 
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
@@ -41,10 +43,12 @@ class TelegramBotStartupRunner implements ApplicationRunner {
 
     private final TelegramGateway gateway;
     private final TelegramBotProperties properties;
+    private final MessageSource messageSource;
 
-    TelegramBotStartupRunner(TelegramGateway gateway, TelegramBotProperties properties) {
+    TelegramBotStartupRunner(TelegramGateway gateway, TelegramBotProperties properties, MessageSource messageSource) {
         this.gateway = gateway;
         this.properties = properties;
+        this.messageSource = messageSource;
     }
 
     @Override
@@ -64,6 +68,16 @@ class TelegramBotStartupRunner implements ApplicationRunner {
         tryRun("setChatMenuButton", () -> gateway.setChatMenuButton("ZarFlow", properties.miniAppUrl()));
         tryRun("setMyCommands(uz/default)", () -> gateway.setMyCommands(COMMANDS_UZ, null));
         tryRun("setMyCommands(ru)", () -> gateway.setMyCommands(COMMANDS_RU, "ru"));
+        tryRun("setMyName(default)", () -> gateway.setMyName("ZarFlow", null));
+        tryRun("setMyName(ru)", () -> gateway.setMyName("ZarFlow", "ru"));
+        tryRun("setMyShortDescription(uz/default)", () -> gateway.setMyShortDescription(
+                messageSource.getMessage("bot.my-short-description", null, Locale.of("uz")), null));
+        tryRun("setMyShortDescription(ru)", () -> gateway.setMyShortDescription(
+                messageSource.getMessage("bot.my-short-description", null, Locale.of("ru")), "ru"));
+        tryRun("setMyDescription(uz/default)", () -> gateway.setMyDescription(
+                messageSource.getMessage("bot.my-description", null, Locale.of("uz")), null));
+        tryRun("setMyDescription(ru)", () -> gateway.setMyDescription(
+                messageSource.getMessage("bot.my-description", null, Locale.of("ru")), "ru"));
     }
 
     private String webhookUrl() {

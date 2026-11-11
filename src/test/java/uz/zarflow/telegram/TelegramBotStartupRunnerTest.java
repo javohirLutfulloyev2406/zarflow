@@ -6,6 +6,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.context.support.ResourceBundleMessageSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -15,10 +16,17 @@ class TelegramBotStartupRunnerTest {
             "token", "secret123", "https://example.test", "https://example.test/app", true,
             Duration.ofSeconds(5), Duration.ofSeconds(10));
 
+    private final ResourceBundleMessageSource messageSource = new ResourceBundleMessageSource();
+
+    TelegramBotStartupRunnerTest() {
+        messageSource.setBasename("messages");
+        messageSource.setDefaultEncoding("UTF-8");
+    }
+
     @Test
     void callsAllFourSetupStepsWithExpectedArgs() {
         FakeTelegramGateway gateway = new FakeTelegramGateway();
-        TelegramBotStartupRunner runner = new TelegramBotStartupRunner(gateway, properties);
+        TelegramBotStartupRunner runner = new TelegramBotStartupRunner(gateway, properties, messageSource);
 
         runner.registerWithTelegram();
 
@@ -32,6 +40,23 @@ class TelegramBotStartupRunnerTest {
         assertThat(gateway.setMyCommandsCalls()).hasSize(2);
         assertThat(gateway.setMyCommandsCalls()).anyMatch(call -> call.languageCode() == null);
         assertThat(gateway.setMyCommandsCalls()).anyMatch(call -> "ru".equals(call.languageCode()));
+
+        assertThat(gateway.setMyNameCalls()).hasSize(2);
+        assertThat(gateway.setMyNameCalls()).allMatch(call -> "ZarFlow".equals(call.name()));
+        assertThat(gateway.setMyNameCalls()).anyMatch(call -> call.languageCode() == null);
+        assertThat(gateway.setMyNameCalls()).anyMatch(call -> "ru".equals(call.languageCode()));
+
+        assertThat(gateway.setMyShortDescriptionCalls()).hasSize(2);
+        assertThat(gateway.setMyShortDescriptionCalls()).anyMatch(call -> call.languageCode() == null
+                && call.shortDescription().startsWith("Pul oqimingiz"));
+        assertThat(gateway.setMyShortDescriptionCalls()).anyMatch(call -> "ru".equals(call.languageCode())
+                && call.shortDescription().startsWith("Деньги под контролем"));
+
+        assertThat(gateway.setMyDescriptionCalls()).hasSize(2);
+        assertThat(gateway.setMyDescriptionCalls()).anyMatch(call -> call.languageCode() == null
+                && call.description().contains("/start bosing"));
+        assertThat(gateway.setMyDescriptionCalls()).anyMatch(call -> "ru".equals(call.languageCode())
+                && call.description().contains("Нажмите /start"));
     }
 
     @Test
@@ -42,12 +67,15 @@ class TelegramBotStartupRunnerTest {
                 throw new TelegramGatewayException("setWebhook");
             }
         };
-        TelegramBotStartupRunner runner = new TelegramBotStartupRunner(gateway, properties);
+        TelegramBotStartupRunner runner = new TelegramBotStartupRunner(gateway, properties, messageSource);
 
         runner.registerWithTelegram();
 
         assertThat(gateway.setChatMenuButtonCalls()).hasSize(1);
         assertThat(gateway.setMyCommandsCalls()).hasSize(2);
+        assertThat(gateway.setMyNameCalls()).hasSize(2);
+        assertThat(gateway.setMyShortDescriptionCalls()).hasSize(2);
+        assertThat(gateway.setMyDescriptionCalls()).hasSize(2);
     }
 
     @Test
@@ -63,7 +91,7 @@ class TelegramBotStartupRunnerTest {
                 }
             }
         };
-        TelegramBotStartupRunner runner = new TelegramBotStartupRunner(gateway, properties);
+        TelegramBotStartupRunner runner = new TelegramBotStartupRunner(gateway, properties, messageSource);
 
         long start = System.nanoTime();
         runner.run(null);
