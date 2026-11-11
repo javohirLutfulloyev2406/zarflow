@@ -2,9 +2,11 @@ package uz.zarflow.telegram;
 
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -319,17 +321,29 @@ class TelegramUpdateService {
         if (accountId == null) {
             return;
         }
+        Instant transactionDate = backdatedInstant(userId, parsed.daysAgo());
 
         if (parsed.confidence() == QuickInputParser.Confidence.HIGH) {
             var input = new Transactions.BotCreateInput(
-                    accountId, parsed.categoryId(), parsed.type(), parsed.amount(), null, parsed.rawLine(), idempotencyKey);
+                    accountId, parsed.categoryId(), parsed.type(), parsed.amount(), null, parsed.rawLine(),
+                    idempotencyKey, transactionDate);
             Transactions.BotTransaction saved = transactions.createFromBot(userId, input);
             sendSavedConfirmation(chatId, locale, userId, saved);
         } else {
             TelegramPendingEntry draft = pendingEntryRepository.save(
-                    new TelegramPendingEntry(userId, accountId, parsed.type(), parsed.amount(), parsed.rawLine()));
+                    new TelegramPendingEntry(userId, accountId, parsed.type(), parsed.amount(), parsed.rawLine(), transactionDate));
             sendCategoryPrompt(chatId, locale, userId, parsed.type(), "N" + draft.getId(), "M" + draft.getId());
         }
+    }
+
+    /** {@code daysAgo == 0} means "today" -- resolves to {@code null} so downstream creation
+     * falls back to its usual "now" default instead of carrying an explicit (and redundant) date. */
+    private Instant backdatedInstant(UUID userId, int daysAgo) {
+        if (daysAgo == 0) {
+            return null;
+        }
+        ZoneId zone = userProfiles.zoneOf(userId);
+        return ZonedDateTime.now(clock.withZone(zone)).minusDays(daysAgo).toInstant();
     }
 
     private UUID resolveAccountId(List<Accounts.AccountView> userAccountViews, QuickInputParser.AccountHint hint) {
@@ -369,8 +383,24 @@ class TelegramUpdateService {
             text = messageSource.getMessage(
                     "bot.quick-input-saved-income", new Object[]{amountText, categoryLabel, accountName}, locale);
         }
+        text = appendBackdatedNoteLine(text, userId, locale, saved.transactionDate());
         InlineKeyboardMarkup markup = savedTransactionButtons(locale, saved.id());
         sendSafely(chatId, text, markup, "bot.quick-input-saved-expense");
+    }
+
+    /** Quick-input entries are usually logged the moment they happen; when a backdating phrase
+     * ("kecha", "3 kun oldin", ...) moved the entry to an earlier day, call that day out explicitly
+     * so the confirmation doesn't read as if it landed on today. */
+    private String appendBackdatedNoteLine(String text, UUID userId, Locale locale, Instant transactionDate) {
+        ZoneId zone = userProfiles.zoneOf(userId);
+        LocalDate entryDate = transactionDate.atZone(zone).toLocalDate();
+        LocalDate today = LocalDate.now(clock.withZone(zone));
+        if (entryDate.equals(today)) {
+            return text;
+        }
+        String line = messageSource.getMessage(
+                "bot.quick-input-backdated-note", new Object[]{MonthNames.dayAndMonth(entryDate, locale)}, locale);
+        return text + "\n" + line;
     }
 
     private String appendTodayLeftLine(String text, UUID userId, Locale locale) {
@@ -596,7 +626,7 @@ class TelegramUpdateService {
             TelegramPendingEntry draft = pendingEntryRepository.findByIdAndUserId(ref.id(), userId).orElseThrow();
             var input = new Transactions.BotCreateInput(
                     draft.getAccountId(), categoryId, draft.getType(), draft.getAmount(), null,
-                    draft.getDescription(), "tg-draft:" + draft.getId());
+                    draft.getDescription(), "tg-draft:" + draft.getId(), draft.getTransactionDate());
             result = transactions.createFromBot(userId, input);
             pendingEntryRepository.delete(draft);
         }
@@ -618,6 +648,7 @@ class TelegramUpdateService {
             text = messageSource.getMessage(
                     "bot.quick-input-saved-income", new Object[]{amountText, categoryLabel, accountName}, locale);
         }
+        text = appendBackdatedNoteLine(text, userId, locale, result.transactionDate());
         telegramGateway.editMessageText(chatId, messageId, text, savedTransactionButtons(locale, result.id()));
     }
 

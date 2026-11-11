@@ -35,6 +35,17 @@ final class QuickInputParser {
     private static final Pattern APOSTROPHES = Pattern.compile("['‘’`]");
     private static final Pattern WORD_SPLIT = Pattern.compile("[^\\p{L}\\p{N}]+");
 
+    /** Backdating hints (docs/PRD.md §5 quick-input, "forgot to log yesterday's expense").
+     * Checked in this order so "3 kun oldin" wins over a bare "kecha" match inside it. */
+    private static final Pattern DAYS_AGO_UZ_PATTERN = Pattern.compile(
+            "\\b(\\d{1,2})\\s*kun\\s*(oldin|avval)\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS);
+    private static final Pattern DAYS_AGO_RU_PATTERN = Pattern.compile(
+            "\\b(\\d{1,2})\\s*дн(?:я|ей)?\\s*назад\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS);
+    private static final Pattern YESTERDAY_PATTERN = Pattern.compile(
+            "\\b(kecha|вчера)\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS);
+    private static final Pattern TODAY_PATTERN = Pattern.compile(
+            "\\b(bugun|сегодня)\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS);
+
     List<ParsedLine> parse(String message, List<CategoryKeyword> categories, Map<String, UUID> parsingMemory) {
         List<ParsedLine> results = new ArrayList<>();
         for (String rawLine : message.split("\\R")) {
@@ -48,7 +59,10 @@ final class QuickInputParser {
     }
 
     Optional<ParsedLine> parseLine(String line, List<CategoryKeyword> categories, Map<String, UUID> parsingMemory) {
-        Matcher matcher = AMOUNT_PATTERN.matcher(line);
+        DateHint dateHint = extractDateHint(line);
+        String workingLine = dateHint.remainingText();
+
+        Matcher matcher = AMOUNT_PATTERN.matcher(workingLine);
         if (!matcher.find()) {
             return Optional.empty();
         }
@@ -57,7 +71,7 @@ final class QuickInputParser {
         String digitsOnly = plusPrefix ? numberRaw.substring(1) : numberRaw;
 
         int afterNumber = matcher.end();
-        String rest = line.substring(afterNumber).stripLeading();
+        String rest = workingLine.substring(afterNumber).stripLeading();
         Matcher suffixMatcher = SUFFIX_PATTERN.matcher(rest);
 
         BigDecimal amount;
@@ -75,7 +89,7 @@ final class QuickInputParser {
             return Optional.empty();
         }
 
-        String noteWithoutAmount = (line.substring(0, matcher.start()) + " " + line.substring(consumedEnd)).trim();
+        String noteWithoutAmount = (workingLine.substring(0, matcher.start()) + " " + workingLine.substring(consumedEnd)).trim();
         String phrase = normalizePhrase(noteWithoutAmount);
         List<String> words = tokenize(noteWithoutAmount);
 
@@ -86,7 +100,34 @@ final class QuickInputParser {
         Confidence confidence = categoryMatch.categoryId() != null ? Confidence.HIGH : Confidence.LOW;
 
         return Optional.of(new ParsedLine(
-                amount, type, categoryMatch.categoryId(), confidence, accountHint, phrase, line));
+                amount, type, categoryMatch.categoryId(), confidence, accountHint, phrase, line, dateHint.daysAgo()));
+    }
+
+    /** Strips a recognized backdating phrase ("kecha", "3 kun oldin", "2 дня назад", ...) out of the
+     * line before amount parsing runs, so its digits (if any) are never mistaken for the amount. The
+     * original {@code line} -- phrase included -- is still what ends up persisted as the description. */
+    private DateHint extractDateHint(String line) {
+        Matcher matcher = DAYS_AGO_UZ_PATTERN.matcher(line);
+        if (matcher.find()) {
+            return new DateHint(Integer.parseInt(matcher.group(1)), withoutMatch(line, matcher));
+        }
+        matcher = DAYS_AGO_RU_PATTERN.matcher(line);
+        if (matcher.find()) {
+            return new DateHint(Integer.parseInt(matcher.group(1)), withoutMatch(line, matcher));
+        }
+        matcher = YESTERDAY_PATTERN.matcher(line);
+        if (matcher.find()) {
+            return new DateHint(1, withoutMatch(line, matcher));
+        }
+        matcher = TODAY_PATTERN.matcher(line);
+        if (matcher.find()) {
+            return new DateHint(0, withoutMatch(line, matcher));
+        }
+        return new DateHint(0, line);
+    }
+
+    private String withoutMatch(String line, Matcher matcher) {
+        return (line.substring(0, matcher.start()) + " " + line.substring(matcher.end())).trim();
     }
 
     /** Same normalization the parser itself uses for keyword/phrase matching — callers persist and look up memory with this. */
@@ -190,9 +231,13 @@ final class QuickInputParser {
 
     enum Confidence { HIGH, LOW }
 
+    private record DateHint(int daysAgo, String remainingText) {
+    }
+
+    /** {@code daysAgo} is 0 for "today" (the default when no backdating phrase was found). */
     record ParsedLine(
             BigDecimal amount, TransactionType type, UUID categoryId, Confidence confidence,
-            AccountHint accountHint, String notePhrase, String rawLine) {
+            AccountHint accountHint, String notePhrase, String rawLine, int daysAgo) {
     }
 
 }

@@ -194,4 +194,63 @@ class QuickInputParserTest {
         assertThat(result.categoryId()).isEqualTo(education);
     }
 
+    @Test
+    void noDateHintDefaultsToToday() {
+        var result = parseOne("25000 tushlik");
+        assertThat(result.daysAgo()).isZero();
+    }
+
+    @Test
+    void yesterdayKeywordUz() {
+        var result = parseOne("kecha 25000 tushlik");
+        assertThat(result.daysAgo()).isEqualTo(1);
+        assertThat(result.amount()).isEqualByComparingTo("25000.00");
+        assertThat(result.categoryId()).isEqualTo(CAFE);
+        assertThat(result.rawLine()).isEqualTo("kecha 25000 tushlik");
+    }
+
+    @Test
+    void yesterdayKeywordRu() {
+        var result = parseOne("вчера 25000 обед");
+        assertThat(result.daysAgo()).isEqualTo(1);
+        assertThat(result.categoryId()).isEqualTo(CAFE);
+    }
+
+    @Test
+    void todayKeywordIsExplicitZero() {
+        var result = parseOne("bugun 25000 tushlik");
+        assertThat(result.daysAgo()).isZero();
+        assertThat(result.categoryId()).isEqualTo(CAFE);
+    }
+
+    @Test
+    void daysAgoPhraseUz() {
+        var result = parseOne("3 kun oldin taksi 15k");
+        assertThat(result.daysAgo()).isEqualTo(3);
+        assertThat(result.amount()).isEqualByComparingTo("15000.00");
+        assertThat(result.categoryId()).isEqualTo(TRANSPORT);
+    }
+
+    @Test
+    void daysAgoPhraseUzAvvalVariant() {
+        var result = parseOne("taksi 15k 5 kun avval");
+        assertThat(result.daysAgo()).isEqualTo(5);
+        assertThat(result.amount()).isEqualByComparingTo("15000.00");
+    }
+
+    @Test
+    void daysAgoPhraseRu() {
+        var result = parseOne("2 дня назад такси 15000");
+        assertThat(result.daysAgo()).isEqualTo(2);
+        assertThat(result.categoryId()).isEqualTo(TRANSPORT);
+    }
+
+    @Test
+    void dateHintAtEndOfLineDoesNotConfuseAmountParsing() {
+        var result = parseOne("tushlik 25000 kecha");
+        assertThat(result.daysAgo()).isEqualTo(1);
+        assertThat(result.amount()).isEqualByComparingTo("25000.00");
+        assertThat(result.categoryId()).isEqualTo(CAFE);
+    }
+
 }

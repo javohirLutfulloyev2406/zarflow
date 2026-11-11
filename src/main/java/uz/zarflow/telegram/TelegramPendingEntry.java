@@ -37,18 +37,25 @@ class TelegramPendingEntry {
 
     private String description;
 
+    /** Null means "now" -- set when the quick-input line carried a backdating phrase
+     * ("kecha", "3 kun oldin", ...) but the parser still couldn't confidently pick a category. */
+    private Instant transactionDate;
+
     @CreationTimestamp
     private Instant createdAt;
 
     protected TelegramPendingEntry() {
     }
 
-    TelegramPendingEntry(UUID userId, UUID accountId, TransactionType type, BigDecimal amount, String description) {
+    TelegramPendingEntry(
+            UUID userId, UUID accountId, TransactionType type, BigDecimal amount, String description,
+            Instant transactionDate) {
         this.userId = userId;
         this.accountId = accountId;
         this.type = type;
         this.amount = amount;
         this.description = description;
+        this.transactionDate = transactionDate;
     }
 
     UUID getId() {
@@ -73,6 +80,10 @@ class TelegramPendingEntry {
 
     String getDescription() {
         return description;
+    }
+
+    Instant getTransactionDate() {
+        return transactionDate;
     }
 
 }
