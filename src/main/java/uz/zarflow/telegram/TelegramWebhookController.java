@@ -3,6 +3,7 @@ package uz.zarflow.telegram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -11,6 +12,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.telegram.telegrambots.meta.api.objects.Update;
+
+import uz.zarflow.shared.common.AdminAlertRequested;
 
 /**
  * Secret-token and body-size checks happen earlier, in {@link TelegramWebhookGuardFilter}
@@ -27,10 +30,12 @@ class TelegramWebhookController {
 
     private final ObjectMapper objectMapper;
     private final TelegramUpdateService updateService;
+    private final ApplicationEventPublisher eventPublisher;
 
-    TelegramWebhookController(ObjectMapper objectMapper, TelegramUpdateService updateService) {
+    TelegramWebhookController(ObjectMapper objectMapper, TelegramUpdateService updateService, ApplicationEventPublisher eventPublisher) {
         this.objectMapper = objectMapper;
         this.updateService = updateService;
+        this.eventPublisher = eventPublisher;
     }
 
     @PostMapping(WEBHOOK_PATH)
@@ -40,6 +45,7 @@ class TelegramWebhookController {
             updateService.handle(update);
         } catch (Exception ex) {
             log.error("Webhook processing failed, requestId={}", MDC.get("requestId"), ex);
+            eventPublisher.publishEvent(new AdminAlertRequested("webhook", ex));
         }
         return ResponseEntity.ok().build();
     }

@@ -14,7 +14,7 @@ class TelegramBotStartupRunnerTest {
 
     private final TelegramBotProperties properties = new TelegramBotProperties(
             "token", "secret123", "https://example.test", "https://example.test/app", true,
-            Duration.ofSeconds(5), Duration.ofSeconds(10));
+            Duration.ofSeconds(5), Duration.ofSeconds(10), null);
 
     private final ResourceBundleMessageSource messageSource = new ResourceBundleMessageSource();
 

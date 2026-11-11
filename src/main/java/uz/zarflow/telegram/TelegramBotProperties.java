@@ -14,7 +14,9 @@ record TelegramBotProperties(
         String miniAppUrl,
         @DefaultValue("false") boolean registerWebhook,
         @DefaultValue("5s") Duration connectTimeout,
-        @DefaultValue("10s") Duration callTimeout) {
+        @DefaultValue("10s") Duration callTimeout,
+        /** Blank/absent disables admin alerts -- {@link AdminAlerterService} treats that as opt-out, not a config error. */
+        String adminChatId) {
 
     private static final Pattern SECRET_PATTERN = Pattern.compile("[A-Za-z0-9_-]{1,256}");
 

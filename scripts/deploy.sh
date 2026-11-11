@@ -17,6 +17,7 @@ if [ $# -ge 1 ]; then
 fi
 
 git pull --ff-only
+export ZARFLOW_BUILD_SHA="$(git rev-parse --short HEAD)"
 
 docker compose --env-file .env.prod -f docker-compose.prod.yml pull
 docker compose --env-file .env.prod -f docker-compose.prod.yml up -d

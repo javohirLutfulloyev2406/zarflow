@@ -16,7 +16,7 @@ class TelegramBotPropertiesTest {
     void rejectsBlankBotToken() {
         assertThatThrownBy(() -> new TelegramBotProperties(
                 "", "valid-secret-123", "https://example.test/webhook", "https://example.test/app", false,
-                CONNECT_TIMEOUT, CALL_TIMEOUT))
+                CONNECT_TIMEOUT, CALL_TIMEOUT, null))
                 .isInstanceOf(IllegalStateException.class);
     }
 
@@ -24,7 +24,7 @@ class TelegramBotPropertiesTest {
     void rejectsWebhookSecretWithInvalidCharacters() {
         assertThatThrownBy(() -> new TelegramBotProperties(
                 "token", "bad secret!", "https://example.test/webhook", "https://example.test/app", false,
-                CONNECT_TIMEOUT, CALL_TIMEOUT))
+                CONNECT_TIMEOUT, CALL_TIMEOUT, null))
                 .isInstanceOf(IllegalStateException.class);
     }
 
@@ -32,7 +32,7 @@ class TelegramBotPropertiesTest {
     void rejectsNonHttpsMiniAppUrl() {
         assertThatThrownBy(() -> new TelegramBotProperties(
                 "token", "valid-secret-123", "https://example.test/webhook", "http://example.test/app", false,
-                CONNECT_TIMEOUT, CALL_TIMEOUT))
+                CONNECT_TIMEOUT, CALL_TIMEOUT, null))
                 .isInstanceOf(IllegalStateException.class);
     }
 
@@ -40,7 +40,7 @@ class TelegramBotPropertiesTest {
     void webhookUrlCanBeBlankWhenRegisterWebhookIsFalse() {
         TelegramBotProperties properties = new TelegramBotProperties(
                 "token", "valid-secret-123", "", "https://example.test/app", false,
-                CONNECT_TIMEOUT, CALL_TIMEOUT);
+                CONNECT_TIMEOUT, CALL_TIMEOUT, null);
 
         assertThat(properties.registerWebhook()).isFalse();
     }
@@ -49,7 +49,7 @@ class TelegramBotPropertiesTest {
     void rejectsNonHttpsWebhookUrlWhenRegisterWebhookIsTrue() {
         assertThatThrownBy(() -> new TelegramBotProperties(
                 "token", "valid-secret-123", "http://not-https.example", "https://example.test/app", true,
-                CONNECT_TIMEOUT, CALL_TIMEOUT))
+                CONNECT_TIMEOUT, CALL_TIMEOUT, null))
                 .isInstanceOf(IllegalStateException.class);
     }
 
@@ -57,12 +57,12 @@ class TelegramBotPropertiesTest {
     void rejectsZeroOrNegativeConnectTimeout() {
         assertThatThrownBy(() -> new TelegramBotProperties(
                 "token", "valid-secret-123", "https://example.test/webhook", "https://example.test/app", false,
-                Duration.ZERO, CALL_TIMEOUT))
+                Duration.ZERO, CALL_TIMEOUT, null))
                 .isInstanceOf(IllegalStateException.class);
 
         assertThatThrownBy(() -> new TelegramBotProperties(
                 "token", "valid-secret-123", "https://example.test/webhook", "https://example.test/app", false,
-                Duration.ofSeconds(-1), CALL_TIMEOUT))
+                Duration.ofSeconds(-1), CALL_TIMEOUT, null))
                 .isInstanceOf(IllegalStateException.class);
     }
 
@@ -70,7 +70,7 @@ class TelegramBotPropertiesTest {
     void rejectsZeroOrNegativeCallTimeout() {
         assertThatThrownBy(() -> new TelegramBotProperties(
                 "token", "valid-secret-123", "https://example.test/webhook", "https://example.test/app", false,
-                CONNECT_TIMEOUT, Duration.ZERO))
+                CONNECT_TIMEOUT, Duration.ZERO, null))
                 .isInstanceOf(IllegalStateException.class);
     }
 
@@ -78,7 +78,7 @@ class TelegramBotPropertiesTest {
     void acceptsValidConfiguration() {
         TelegramBotProperties properties = new TelegramBotProperties(
                 "token", "valid-secret-123", "https://example.test/webhook", "https://example.test/app", true,
-                CONNECT_TIMEOUT, CALL_TIMEOUT);
+                CONNECT_TIMEOUT, CALL_TIMEOUT, null);
 
         assertThat(properties.botToken()).isEqualTo("token");
         assertThat(properties.registerWebhook()).isTrue();
