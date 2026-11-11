@@ -91,11 +91,20 @@ cat "${DEPLOY_KEY}.pub"
 echo "---------------------------------------------------------------"
 
 echo "== ufw =="
-apt-get install -y -qq ufw
-ufw allow 22/tcp
-ufw allow 80/tcp
-ufw allow 443/tcp
-ufw --force enable
+# Oracle Cloud (OCI) already filters inbound traffic via the VCN security list,
+# on top of iptables rules its images ship pre-configured. Enabling ufw too is
+# the classic OCI lockout trap: ufw's rules land after/around the existing
+# iptables chain and can conflict with it instead of layering cleanly.
+if [ -r /sys/class/dmi/id/sys_vendor ] && grep -qi oracle /sys/class/dmi/id/sys_vendor; then
+  echo "Oracle Cloud instance detected -- skipping ufw. Open 22/80/443 in the"
+  echo "VCN's security list (console or 'oci network security-list update') instead."
+else
+  apt-get install -y -qq ufw
+  ufw allow 22/tcp
+  ufw allow 80/tcp
+  ufw allow 443/tcp
+  ufw --force enable
+fi
 
 echo "== unattended-upgrades =="
 apt-get install -y -qq unattended-upgrades
