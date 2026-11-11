@@ -112,6 +112,50 @@ class TransactionsService implements Transactions {
 
     @Override
     @Transactional
+    public BotTransaction createFromBankImport(UUID userId, BankImportCreateInput input) {
+        TransactionView view = createInternal(
+                userId, input.accountId(), input.categoryId(), input.type(), input.amount(), null,
+                input.transactionDate(), input.description(), TransactionSource.BANK_IMPORT, input.idempotencyKey(), null);
+        return toBotTransaction(view);
+    }
+
+    @Override
+    @Transactional
+    public BankImportTransferResult createTransferFromBankImport(UUID userId, BankImportTransferInput input) {
+        if (input.fromAccountId().equals(input.toAccountId())) {
+            throw new BusinessRuleException("transaction.transfer_same_account");
+        }
+        accounts.requireOwned(userId, input.fromAccountId());
+        accounts.requireOwned(userId, input.toAccountId());
+        Instant transactionDate = input.transactionDate() == null ? Instant.now(clock) : input.transactionDate();
+        requireNotFuture(transactionDate);
+
+        UUID transferGroupId = UUID.randomUUID();
+        Transaction outgoing = new Transaction(
+                userId, input.fromAccountId(), null, TransactionType.TRANSFER, input.amount().negate(), null,
+                transactionDate, input.description(), TransactionSource.BANK_IMPORT, transferGroupId, null, false);
+        Transaction incoming = new Transaction(
+                userId, input.toAccountId(), null, TransactionType.TRANSFER, input.amount(), null,
+                transactionDate, input.description(), TransactionSource.BANK_IMPORT, transferGroupId, null, false);
+        transactionRepository.save(outgoing);
+        transactionRepository.save(incoming);
+        audit(outgoing.getId(), TransactionAuditAction.CREATE, null, outgoing);
+        audit(incoming.getId(), TransactionAuditAction.CREATE, null, incoming);
+        return new BankImportTransferResult(transferGroupId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<BotTransaction> findPossibleManualDuplicate(
+            UUID userId, TransactionType type, BigDecimal amount, Instant around, Duration window) {
+        return transactionRepository
+                .findPossibleManualDuplicate(userId, type, amount, around.minus(window), around.plus(window))
+                .stream().findFirst()
+                .map(t -> toBotTransaction(toView(t)));
+    }
+
+    @Override
+    @Transactional
     public GoalTransferResult transferForGoal(UUID userId, GoalTransferInput input) {
         if (input.fromAccountId().equals(input.toAccountId())) {
             throw new BusinessRuleException("transaction.transfer_same_account");

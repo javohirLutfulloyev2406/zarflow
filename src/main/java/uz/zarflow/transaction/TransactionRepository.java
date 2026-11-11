@@ -84,6 +84,20 @@ interface TransactionRepository extends Repository<Transaction, UUID>, JpaSpecif
         BigDecimal getTotal();
     }
 
+    /** The Humo import module's "possible manual duplicate" check (docs/PRD.md §5) --
+     * {@code source != 'BANK_IMPORT'} so an import is never flagged as a duplicate of
+     * another import (those are deduped by fingerprint instead, before this ever runs). */
+    @Query("""
+            select t from Transaction t
+            where t.userId = :userId and t.deletedAt is null and t.type = :type
+              and t.amount = :amount and t.source <> 'BANK_IMPORT'
+              and t.transactionDate >= :from and t.transactionDate <= :to
+            order by t.transactionDate desc
+            """)
+    List<Transaction> findPossibleManualDuplicate(
+            @Param("userId") UUID userId, @Param("type") TransactionType type, @Param("amount") BigDecimal amount,
+            @Param("from") Instant from, @Param("to") Instant to);
+
     @Query("""
             select coalesce(sum(t.amount), 0) from Transaction t
             where t.userId = :userId and t.accountId = :accountId and t.linkedGoalId = :goalId
