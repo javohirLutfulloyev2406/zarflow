@@ -195,7 +195,14 @@ export interface AccountBalance {
 /** Mirrors SummaryController.TodayAndMonthResponse. */
 export interface TodayAndMonthSummary {
   today: { expenses: ExpenseLine[]; total: string };
-  month: { income: string; expense: string; net: string };
+  month: {
+    income: string;
+    expense: string;
+    net: string;
+    debtPayments: string;
+    debtPrincipal: string;
+    debtInterestAndFee: string;
+  };
   balances: AccountBalance[];
 }
 
@@ -430,4 +437,123 @@ export interface HabitSummary {
   bestStreak: number;
   daysWithinLimitThisMonth: number;
   achievements: Achievement[];
+}
+
+export type DebtType = "BANK_LOAN" | "INSTALLMENT" | "CREDIT_CARD" | "PERSONAL_DEBT" | "OTHER";
+export type DebtInterestMethod = "ANNUITY_MONTHLY" | "ACTUAL_365";
+export type DebtStatusValue = "ACTIVE" | "CLOSED";
+
+/** Mirrors DebtController.DebtResponse. */
+export interface Debt {
+  id: string;
+  name: string;
+  lender: string | null;
+  type: DebtType;
+  originalAmount: string;
+  outstandingPrincipal: string;
+  annualRate: string;
+  monthlyPayment: string;
+  startDate: string;
+  endDate: string;
+  paymentDay: number;
+  interestMethod: DebtInterestMethod;
+  status: DebtStatusValue;
+  scheduleIsEstimated: boolean;
+}
+
+export interface CreateDebtRequest {
+  name: string;
+  lender?: string | null;
+  type: DebtType;
+  originalAmount: string;
+  annualRate: string;
+  interestMethod: DebtInterestMethod;
+  startDate: string;
+  termMonths?: number | null;
+  endDate?: string | null;
+  paymentDay: number;
+}
+
+export interface UpdateDebtRequest {
+  name: string;
+  lender?: string | null;
+  annualRate: string;
+  interestMethod: DebtInterestMethod;
+  paymentDay: number;
+}
+
+export interface ManualScheduleRowRequest {
+  dueDate: string;
+  principal: string;
+  interest: string;
+  fee?: string | null;
+}
+
+/** Mirrors DebtController.ScheduleRowResponse. */
+export interface DebtScheduleRow {
+  id: string;
+  seq: number;
+  dueDate: string;
+  principal: string;
+  interest: string;
+  fee: string;
+  isEstimated: boolean;
+  paid: boolean;
+}
+
+/** Mirrors DebtController.PaymentResponse. */
+export interface DebtPayment {
+  id: string;
+  paidOn: string;
+  principal: string;
+  interest: string;
+  fee: string;
+  extra: boolean;
+}
+
+export interface PayDebtRequest {
+  amount: string;
+  paidOn: string;
+  accountId: string;
+  extra: boolean;
+}
+
+/** Mirrors DebtController.PaymentResultResponse. */
+export interface DebtPaymentResult {
+  debtId: string;
+  principal: string;
+  interest: string;
+  fee: string;
+  outstandingPrincipal: string;
+  closed: boolean;
+  transactionId: string;
+}
+
+/** Mirrors DebtController.ProgressResponse. */
+export interface DebtProgress {
+  paidPercent: string;
+  monthsLeft: number;
+  estimatedCloseDate: string | null;
+  interestRemaining: string;
+}
+
+/** Mirrors DebtController.SimulateResponse. */
+export interface DebtSimulateResult {
+  newCloseDate: string;
+  monthsSaved: number;
+  interestSaved: string;
+}
+
+export type DebtStrategyKind = "AVALANCHE" | "SNOWBALL";
+
+export interface DebtStrategyOutcome {
+  closeDate: string;
+  totalInterest: string;
+}
+
+/** Mirrors DebtController.StrategyResponse. */
+export interface DebtStrategyComparison {
+  avalanche: DebtStrategyOutcome;
+  snowball: DebtStrategyOutcome;
+  recommended: DebtStrategyKind;
 }

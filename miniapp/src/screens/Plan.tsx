@@ -10,6 +10,7 @@ import { SkeletonCard } from "../components/SkeletonCard";
 import { useDictionary } from "../i18n/dictionary";
 import { useLanguage } from "../i18n/useLanguage";
 import { formatMoney } from "../money/formatMoney";
+import { DebtsSection } from "./DebtsSection";
 import { RecurringSection } from "./RecurringSection";
 
 export function Plan() {
@@ -39,6 +40,8 @@ export function Plan() {
       {isPending ? <SkeletonCard label="" /> : null}
       {isError ? <EmptyStateCard>{dictionary.error.generic}</EmptyStateCard> : null}
       {data ? <BudgetForm month={month} initial={data} categories={expenseCategories} /> : null}
+
+      <DebtsSection />
 
       <RecurringSection />
     </div>

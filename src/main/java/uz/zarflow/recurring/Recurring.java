@@ -34,7 +34,7 @@ public interface Recurring {
     RecurringBudgetAutoSum.Totals autoSumForMonth(UUID userId, YearMonth month);
 
     record CreateRule(
-            String name, RecurringKind kind, BigDecimal amount, UUID categoryId, UUID accountId,
+            String name, RecurringKind kind, BigDecimal amount, UUID categoryId, UUID accountId, UUID debtId,
             RecurringDateCalculator.ScheduleKind schedule, Integer dayOfMonth, Integer dayOfWeek, Integer everyNDays,
             LocalDate startDate, boolean autoCreate, int remindDaysBefore) {
     }
@@ -46,7 +46,7 @@ public interface Recurring {
     }
 
     record RuleView(
-            UUID id, String name, RecurringKind kind, BigDecimal amount, UUID categoryId, UUID accountId,
+            UUID id, String name, RecurringKind kind, BigDecimal amount, UUID categoryId, UUID accountId, UUID debtId,
             RecurringDateCalculator.ScheduleKind schedule, Integer dayOfMonth, Integer dayOfWeek, Integer everyNDays,
             LocalDate startDate, LocalDate nextDueDate, boolean autoCreate, int remindDaysBefore, boolean active) {
     }

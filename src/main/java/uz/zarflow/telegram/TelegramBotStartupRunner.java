@@ -23,6 +23,7 @@ class TelegramBotStartupRunner implements ApplicationRunner {
             new BotCommand("week", "Haftalik hisobot"),
             new BotCommand("month", "Oylik hisobot"),
             new BotCommand("balance", "Hisoblar balansi"),
+            new BotCommand("debt", "Qarzlaringiz"),
             new BotCommand("undo", "Oxirgi yozuvni bekor qilish"),
             new BotCommand("app", "ZarFlow ilovasini ochish"),
             new BotCommand("help", "Yordam"));
@@ -33,6 +34,7 @@ class TelegramBotStartupRunner implements ApplicationRunner {
             new BotCommand("week", "Отчёт за неделю"),
             new BotCommand("month", "Отчёт за месяц"),
             new BotCommand("balance", "Баланс по счетам"),
+            new BotCommand("debt", "Ваши долги"),
             new BotCommand("undo", "Отменить последнюю запись"),
             new BotCommand("app", "Открыть приложение ZarFlow"),
             new BotCommand("help", "Помощь"));

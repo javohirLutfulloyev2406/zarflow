@@ -1,6 +1,7 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 
 import { TabsLayout } from "./TabsLayout";
+import { DebtDetail } from "../screens/DebtDetail";
 import { Home } from "../screens/Home";
 import { History } from "../screens/History";
 import { Analytics } from "../screens/Analytics";
@@ -18,6 +19,7 @@ const router = createBrowserRouter([
     ],
   },
   { path: "/profile", element: <Profile /> },
+  { path: "/debts/:id", element: <DebtDetail /> },
 ]);
 
 export function AppRouter() {

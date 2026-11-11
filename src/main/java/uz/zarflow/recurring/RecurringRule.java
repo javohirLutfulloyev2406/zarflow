@@ -39,6 +39,11 @@ class RecurringRule {
 
     private UUID accountId;
 
+    /** Set only for LOAN rules created against a tracked debt; immutable after creation. A
+     * LOAN rule without one still works exactly as before -- its [To'landi] just books a
+     * bare DEBT_PAYMENT with no principal/interest split tracked anywhere. */
+    private UUID debtId;
+
     @Enumerated(EnumType.STRING)
     private RecurringDateCalculator.ScheduleKind schedule;
 
@@ -76,7 +81,7 @@ class RecurringRule {
 
     RecurringRule(
             UUID userId, String name, RecurringKind kind, BigDecimal amount, UUID categoryId, UUID accountId,
-            RecurringDateCalculator.ScheduleKind schedule, Integer dayOfMonth, Integer dayOfWeek, Integer everyNDays,
+            UUID debtId, RecurringDateCalculator.ScheduleKind schedule, Integer dayOfMonth, Integer dayOfWeek, Integer everyNDays,
             LocalDate startDate, LocalDate nextDueDate, boolean autoCreate, int remindDaysBefore) {
         this.userId = userId;
         this.name = name;
@@ -84,6 +89,7 @@ class RecurringRule {
         this.amount = amount;
         this.categoryId = categoryId;
         this.accountId = accountId;
+        this.debtId = debtId;
         this.schedule = schedule;
         this.dayOfMonth = dayOfMonth;
         this.dayOfWeek = dayOfWeek;
@@ -146,6 +152,10 @@ class RecurringRule {
 
     UUID getAccountId() {
         return accountId;
+    }
+
+    UUID getDebtId() {
+        return debtId;
     }
 
     RecurringDateCalculator.ScheduleKind getSchedule() {

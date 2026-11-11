@@ -30,6 +30,12 @@ public interface Transactions {
      * {@code input.idempotencyKey()} -- a double tap on "To'landi" creates exactly one transaction. */
     BotTransaction createFromRecurring(UUID userId, RecurringCreateInput input);
 
+    /** For the debt module's payment flow (API, bot quick-input, or recurring LOAN reminder
+     * all funnel through here) -- always books a DEBT_PAYMENT with no category, since the
+     * principal/interest split that matters for analytics lives in debt_payments, not here.
+     * Idempotent on {@code input.idempotencyKey()}. */
+    BotTransaction createFromDebtPayment(UUID userId, DebtPaymentCreateInput input);
+
     /** Used by the bot's "Kategoriya" button and the low-confidence category pick. */
     BotTransaction updateCategory(UUID userId, UUID transactionId, UUID categoryId);
 
@@ -96,6 +102,9 @@ public interface Transactions {
     record RecurringCreateInput(
             UUID accountId, UUID categoryId, TransactionType type, BigDecimal amount, boolean isFixed,
             String description, String idempotencyKey) {
+    }
+
+    record DebtPaymentCreateInput(UUID accountId, BigDecimal amount, String description, String idempotencyKey) {
     }
 
     record PeriodAnalytics(

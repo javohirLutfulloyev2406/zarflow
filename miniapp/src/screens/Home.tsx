@@ -5,9 +5,10 @@ import { getHabitSummary } from "../api/habits";
 import { dismissInsight, listInsights } from "../api/insights";
 import { getTodayBudget } from "../api/budgets";
 import { listCategories } from "../api/categories";
+import { getDebtStrategy, listDebts } from "../api/debts";
 import { listUpcomingOccurrences } from "../api/recurring";
 import { getTodayAndMonth } from "../api/summary";
-import type { Insight, TodayBudgetResponse, UpcomingOccurrence } from "../api/types";
+import type { Debt, Insight, TodayBudgetResponse, UpcomingOccurrence } from "../api/types";
 import { todayKey } from "../analytics/month";
 import { SemicircleGauge } from "../budget/SemicircleGauge";
 import { EmptyStateCard } from "../components/EmptyStateCard";
@@ -29,6 +30,8 @@ export function Home() {
   const upcoming = useQuery({ queryKey: ["recurring", "upcoming", 7], queryFn: () => listUpcomingOccurrences(7) });
   const habitSummary = useQuery({ queryKey: ["habits"], queryFn: getHabitSummary });
   const insights = useQuery({ queryKey: ["insights"], queryFn: listInsights });
+  const debtsQuery = useQuery({ queryKey: ["debts"], queryFn: listDebts });
+  const activeDebts = (debtsQuery.data ?? []).filter((d) => d.status === "ACTIVE");
 
   function categoryLabel(categoryId: string | null): string {
     const category = categories.find((c) => c.id === categoryId);
@@ -66,6 +69,10 @@ export function Home() {
       {insights.data?.[0] ? <InsightCard insight={insights.data[0]} /> : null}
 
       {upcoming.data && upcoming.data.length > 0 ? <UpcomingPaymentsCard occurrences={upcoming.data} /> : null}
+
+      {activeDebts.length > 0 ? <DebtsCard debts={activeDebts} /> : null}
+
+      {activeDebts.length >= 2 ? <StrategyCard /> : null}
 
       {summary.isPending ? (
         <>
@@ -188,6 +195,76 @@ function UpcomingPaymentsCard({ occurrences }: { occurrences: UpcomingOccurrence
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+function DebtsCard({ debts }: { debts: Debt[] }) {
+  const dictionary = useDictionary();
+  const language = useLanguage();
+
+  return (
+    <div className="rounded-2xl bg-navy-800 p-4">
+      <p className="mb-2 text-xs text-slate-400">{dictionary.debts.homeCardTitle}</p>
+      <div className="flex flex-col gap-3">
+        {debts.map((debt) => {
+          const paidFraction = 1 - Number(debt.outstandingPrincipal) / Math.max(Number(debt.originalAmount), 1);
+          return (
+            <Link key={debt.id} to={`/debts/${debt.id}`} className="block">
+              <div className="mb-1 flex items-center justify-between text-sm">
+                <span className="text-ivory-50">{debt.name}</span>
+                <span className="font-medium text-ivory-50">{formatMoney(debt.outstandingPrincipal, language)}</span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-navy-900">
+                <div
+                  className="h-full rounded-full bg-emerald-700"
+                  style={{ width: `${Math.min(100, Math.max(0, paidFraction * 100))}%` }}
+                />
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function StrategyCard() {
+  const dictionary = useDictionary();
+  const language = useLanguage();
+  const strategyQuery = useQuery({
+    queryKey: ["debts", "strategy", 0],
+    queryFn: () => getDebtStrategy("0.00"),
+  });
+
+  if (!strategyQuery.data) {
+    return null;
+  }
+  const { avalanche, snowball, recommended } = strategyQuery.data;
+
+  return (
+    <div className="rounded-2xl bg-navy-800 p-4">
+      <p className="mb-3 text-sm font-medium">{dictionary.debts.strategyTitle}</p>
+      <div className="grid grid-cols-2 gap-2">
+        <div className={`rounded-xl p-3 ${recommended === "AVALANCHE" ? "bg-emerald-700" : "bg-navy-900"}`}>
+          <p className="text-xs text-ivory-50">{dictionary.debts.strategyAvalanche}</p>
+          <p className="mt-1 text-xs text-slate-300">
+            {dictionary.debts.strategyInterestLabel}: {formatMoney(avalanche.totalInterest, language)}
+          </p>
+          {recommended === "AVALANCHE" ? (
+            <p className="mt-1 text-xs font-semibold text-gold-400">{dictionary.debts.strategyRecommended}</p>
+          ) : null}
+        </div>
+        <div className={`rounded-xl p-3 ${recommended === "SNOWBALL" ? "bg-emerald-700" : "bg-navy-900"}`}>
+          <p className="text-xs text-ivory-50">{dictionary.debts.strategySnowball}</p>
+          <p className="mt-1 text-xs text-slate-300">
+            {dictionary.debts.strategyInterestLabel}: {formatMoney(snowball.totalInterest, language)}
+          </p>
+          {recommended === "SNOWBALL" ? (
+            <p className="mt-1 text-xs font-semibold text-gold-400">{dictionary.debts.strategyRecommended}</p>
+          ) : null}
+        </div>
       </div>
     </div>
   );

@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import uz.zarflow.account.Accounts;
 import uz.zarflow.category.Categories;
+import uz.zarflow.debt.Debts;
 import uz.zarflow.shared.exception.NotFoundException;
 import uz.zarflow.shared.security.OwnershipGuard;
 import uz.zarflow.transaction.TransactionType;
@@ -28,6 +29,7 @@ class RecurringService implements Recurring {
     private final Transactions transactions;
     private final Accounts accounts;
     private final Categories categories;
+    private final Debts debts;
     private final UserProfiles userProfiles;
     private final Clock clock;
 
@@ -37,6 +39,7 @@ class RecurringService implements Recurring {
             Transactions transactions,
             Accounts accounts,
             Categories categories,
+            Debts debts,
             UserProfiles userProfiles,
             Clock clock) {
         this.ruleRepository = ruleRepository;
@@ -44,6 +47,7 @@ class RecurringService implements Recurring {
         this.transactions = transactions;
         this.accounts = accounts;
         this.categories = categories;
+        this.debts = debts;
         this.userProfiles = userProfiles;
         this.clock = clock;
     }
@@ -66,9 +70,13 @@ class RecurringService implements Recurring {
                 input.schedule(), input.dayOfMonth(), input.dayOfWeek(), input.everyNDays(), input.startDate());
         LocalDate nextDueDate = RecurringDateCalculator.firstOccurrenceOnOrAfter(schedule, today);
 
+        UUID debtId = input.kind() == RecurringKind.LOAN ? input.debtId() : null;
+        if (debtId != null) {
+            debts.requireOwned(userId, debtId);
+        }
         RecurringRule rule = new RecurringRule(
                 userId, input.name(), input.kind(), input.amount(), input.kind() == RecurringKind.LOAN ? null : input.categoryId(),
-                input.accountId(), input.schedule(), input.dayOfMonth(), input.dayOfWeek(), input.everyNDays(),
+                input.accountId(), debtId, input.schedule(), input.dayOfMonth(), input.dayOfWeek(), input.everyNDays(),
                 input.startDate(), nextDueDate, input.autoCreate(), input.remindDaysBefore());
         ruleRepository.save(rule);
         return toView(rule);
@@ -172,6 +180,13 @@ class RecurringService implements Recurring {
     }
 
     UUID createSettlementTransaction(RecurringRule rule, RecurringOccurrence occurrence) {
+        String idempotencyKey = "recurring:" + occurrence.getId();
+        if (rule.getKind() == RecurringKind.LOAN && rule.getDebtId() != null) {
+            Debts.PaymentResult result = debts.payFromRecurring(
+                    rule.getUserId(), rule.getDebtId(), rule.getAmount(), occurrence.getDueDate(), rule.getAccountId(), idempotencyKey);
+            return result.transactionId();
+        }
+
         TransactionType type = switch (rule.getKind()) {
             case REGULAR -> TransactionType.EXPENSE;
             case LOAN -> TransactionType.DEBT_PAYMENT;
@@ -179,7 +194,6 @@ class RecurringService implements Recurring {
         };
         UUID categoryId = rule.getKind() == RecurringKind.LOAN ? null : rule.getCategoryId();
         boolean isFixed = rule.getKind() == RecurringKind.REGULAR;
-        String idempotencyKey = "recurring:" + occurrence.getId();
         Transactions.BotTransaction created = transactions.createFromRecurring(rule.getUserId(), new Transactions.RecurringCreateInput(
                 rule.getAccountId(), categoryId, type, rule.getAmount(), isFixed, rule.getName(), idempotencyKey));
         return created.id();
@@ -229,8 +243,8 @@ class RecurringService implements Recurring {
     private RuleView toView(RecurringRule rule) {
         return new RuleView(
                 rule.getId(), rule.getName(), rule.getKind(), rule.getAmount(), rule.getCategoryId(), rule.getAccountId(),
-                rule.getSchedule(), rule.getDayOfMonth(), rule.getDayOfWeek(), rule.getEveryNDays(), rule.getStartDate(),
-                rule.getNextDueDate(), rule.isAutoCreate(), rule.getRemindDaysBefore(), rule.isActive());
+                rule.getDebtId(), rule.getSchedule(), rule.getDayOfMonth(), rule.getDayOfWeek(), rule.getEveryNDays(),
+                rule.getStartDate(), rule.getNextDueDate(), rule.isAutoCreate(), rule.getRemindDaysBefore(), rule.isActive());
     }
 
     private OccurrenceResult toResult(RecurringOccurrence occurrence) {

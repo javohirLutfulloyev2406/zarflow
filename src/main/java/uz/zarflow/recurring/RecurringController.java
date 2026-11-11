@@ -48,7 +48,7 @@ class RecurringController {
     @ResponseStatus(HttpStatus.CREATED)
     RuleResponse create(@Valid @RequestBody CreateRuleRequest request) {
         var input = new Recurring.CreateRule(
-                request.name(), request.kind(), request.amount(), request.categoryId(), request.accountId(),
+                request.name(), request.kind(), request.amount(), request.categoryId(), request.accountId(), request.debtId(),
                 request.schedule(), request.dayOfMonth(), request.dayOfWeek(), request.everyNDays(),
                 request.startDate(), request.autoCreate(), request.remindDaysBefore());
         return toResponse(recurring.create(currentUser.requireUserId(), input));
@@ -85,7 +85,7 @@ class RecurringController {
 
     private RuleResponse toResponse(Recurring.RuleView view) {
         return new RuleResponse(
-                view.id(), view.name(), view.kind(), view.amount(), view.categoryId(), view.accountId(),
+                view.id(), view.name(), view.kind(), view.amount(), view.categoryId(), view.accountId(), view.debtId(),
                 view.schedule(), view.dayOfMonth(), view.dayOfWeek(), view.everyNDays(), view.startDate(),
                 view.nextDueDate(), view.autoCreate(), view.remindDaysBefore(), view.active());
     }
@@ -106,6 +106,7 @@ class RecurringController {
             @NotNull @DecimalMin(value = "0.00", inclusive = false) @Digits(integer = 12, fraction = 2) BigDecimal amount,
             UUID categoryId,
             @NotNull UUID accountId,
+            UUID debtId,
             @NotNull RecurringDateCalculator.ScheduleKind schedule,
             @Min(1) @Max(31) Integer dayOfMonth,
             @Min(1) @Max(7) Integer dayOfWeek,
@@ -129,7 +130,7 @@ class RecurringController {
     }
 
     record RuleResponse(
-            UUID id, String name, RecurringKind kind, BigDecimal amount, UUID categoryId, UUID accountId,
+            UUID id, String name, RecurringKind kind, BigDecimal amount, UUID categoryId, UUID accountId, UUID debtId,
             RecurringDateCalculator.ScheduleKind schedule, Integer dayOfMonth, Integer dayOfWeek, Integer everyNDays,
             LocalDate startDate, LocalDate nextDueDate, boolean autoCreate, int remindDaysBefore, boolean active) {
     }
