@@ -14,13 +14,19 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
+import uz.zarflow.shared.common.AdminAlertRequested;
+
 /**
  * Sends operational alerts to one fixed admin Telegram chat, independent of any app user.
  * Disabled entirely (every call is a silent no-op) when {@code zarflow.telegram.admin-chat-id}
  * is blank -- that's the expected local/dev state, not a misconfiguration.
+ *
+ * <p>Listens for {@link AdminAlertRequested} rather than exposing a method other modules
+ * call directly -- telegram already depends on other modules (e.g. budget), so a direct
+ * dependency the other way would risk a circular module dependency.
  */
 @Service
-class AdminAlerterService implements AdminAlerter {
+class AdminAlerterService {
 
     private static final Logger log = LoggerFactory.getLogger(AdminAlerterService.class);
     private static final ZoneId TASHKENT = ZoneId.of("Asia/Tashkent");
@@ -44,8 +50,12 @@ class AdminAlerterService implements AdminAlerter {
         this.rateLimiter = new AlertRateLimiter(clock, COOLDOWN, MAX_PER_HOUR);
     }
 
-    @Override
-    public void alert(String source, Throwable ex) {
+    @EventListener
+    void onAdminAlertRequested(AdminAlertRequested event) {
+        alert(event.source(), event.exception());
+    }
+
+    private void alert(String source, Throwable ex) {
         if (adminChatId == null) {
             return;
         }

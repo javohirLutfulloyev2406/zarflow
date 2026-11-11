@@ -8,6 +8,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.MessageSource;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -23,7 +24,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 
-import uz.zarflow.telegram.AdminAlerter;
+import uz.zarflow.shared.common.AdminAlertRequested;
 
 /**
  * @Order(HIGHEST_PRECEDENCE): with spring.mvc.problemdetails.enabled=true, Spring's
@@ -40,11 +41,11 @@ class GlobalExceptionHandler {
     private static final String PROBLEM_BASE_URI = "https://zarflow.uz/problems/";
 
     private final MessageSource messageSource;
-    private final AdminAlerter adminAlerter;
+    private final ApplicationEventPublisher eventPublisher;
 
-    GlobalExceptionHandler(MessageSource messageSource, AdminAlerter adminAlerter) {
+    GlobalExceptionHandler(MessageSource messageSource, ApplicationEventPublisher eventPublisher) {
         this.messageSource = messageSource;
-        this.adminAlerter = adminAlerter;
+        this.eventPublisher = eventPublisher;
     }
 
     @ExceptionHandler(NotFoundException.class)
@@ -99,7 +100,7 @@ class GlobalExceptionHandler {
     ProblemDetail handleUnexpected(Exception ex, Locale locale, HttpServletRequest request) {
         String requestId = MDC.get("requestId");
         log.error("Unhandled exception, requestId={}", requestId, ex);
-        adminAlerter.alert("endpoint " + request.getMethod() + " " + request.getRequestURI(), ex);
+        eventPublisher.publishEvent(new AdminAlertRequested("endpoint " + request.getMethod() + " " + request.getRequestURI(), ex));
 
         ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR);
         problemDetail.setTitle(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase());

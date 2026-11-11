@@ -4,10 +4,11 @@ import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import uz.zarflow.telegram.AdminAlerter;
+import uz.zarflow.shared.common.AdminAlertRequested;
 
 @Component
 class DailyReportScheduler {
@@ -15,11 +16,11 @@ class DailyReportScheduler {
     private static final Logger log = LoggerFactory.getLogger(DailyReportScheduler.class);
 
     private final DailyReportService dailyReportService;
-    private final AdminAlerter adminAlerter;
+    private final ApplicationEventPublisher eventPublisher;
 
-    DailyReportScheduler(DailyReportService dailyReportService, AdminAlerter adminAlerter) {
+    DailyReportScheduler(DailyReportService dailyReportService, ApplicationEventPublisher eventPublisher) {
         this.dailyReportService = dailyReportService;
-        this.adminAlerter = adminAlerter;
+        this.eventPublisher = eventPublisher;
     }
 
     @Scheduled(cron = "0 * * * * *")
@@ -29,7 +30,7 @@ class DailyReportScheduler {
             dailyReportService.runDueReports();
         } catch (Exception ex) {
             log.error("Daily report job failed", ex);
-            adminAlerter.alert("job:dailyReport", ex);
+            eventPublisher.publishEvent(new AdminAlertRequested("job:dailyReport", ex));
         }
     }
 
