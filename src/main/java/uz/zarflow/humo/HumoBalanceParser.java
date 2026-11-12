@@ -19,8 +19,13 @@ import java.util.regex.Pattern;
 final class HumoBalanceParser {
 
     private static final Pattern CARD_PATTERN = Pattern.compile("(?i)humo\\s*card\\s*\\*\\s*(\\d{4})");
+    // 💵 is the balance-amount marker in every real @HUMOcardbot balance block (see
+    // balance.txt). Requiring it (rather than matching any "<number> UZS" in the window
+    // up to the next card mention) keeps this from picking up an unrelated transaction's
+    // amount when a HUMOCARD-mentioning *transaction* notification -- marked ➖/➕, never
+    // 💵 -- happens to share the text with another block (docs/adr/0006).
     private static final Pattern AMOUNT_PATTERN =
-            Pattern.compile("([0-9][0-9.,'‘’\\s]*[0-9]|[0-9])\\s*uzs", Pattern.CASE_INSENSITIVE);
+            Pattern.compile("💵\\s*([0-9][0-9.,'‘’\\s]*[0-9]|[0-9])\\s*uzs", Pattern.CASE_INSENSITIVE);
     private static final Pattern THOUSANDS_SEPARATOR = Pattern.compile("['‘’\\s]");
 
     private HumoBalanceParser() {
