@@ -9,9 +9,13 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import uz.zarflow.account.Accounts;
 import uz.zarflow.category.Categories;
@@ -34,6 +38,7 @@ class HumoImportService implements HumoImport {
     private final Transactions transactions;
     private final HumoImportDraftRepository draftRepository;
     private final JdbcTemplate jdbcTemplate;
+    private final TransactionTemplate claimTransaction;
 
     HumoImportService(
             Accounts accounts,
@@ -41,13 +46,21 @@ class HumoImportService implements HumoImport {
             Debts debts,
             Transactions transactions,
             HumoImportDraftRepository draftRepository,
-            JdbcTemplate jdbcTemplate) {
+            JdbcTemplate jdbcTemplate,
+            PlatformTransactionManager transactionManager) {
         this.accounts = accounts;
         this.categories = categories;
         this.debts = debts;
         this.transactions = transactions;
         this.draftRepository = draftRepository;
         this.jdbcTemplate = jdbcTemplate;
+        this.claimTransaction = new TransactionTemplate(transactionManager);
+        // NESTED (a savepoint) rather than the default: if the insert below still
+        // somehow violates the (user_id, fingerprint) unique index despite ON CONFLICT
+        // DO NOTHING, catching the exception in Java alone wouldn't be enough -- Postgres
+        // aborts the whole surrounding @Transactional process() call on any statement
+        // failure. A savepoint lets us roll back just this one claim and keep going.
+        this.claimTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_NESTED);
     }
 
     @Override
@@ -263,12 +276,22 @@ class HumoImportService implements HumoImport {
                 block.cardLast4(), accountId, block.transactionDate(), initialState));
     }
 
+    /** A unique violation on {@code (user_id, fingerprint)} -- even though {@code ON
+     * CONFLICT DO NOTHING} already makes that the normal, non-throwing outcome -- still
+     * counts as "already imported", not a failure (docs/adr/0006). */
     private Optional<UUID> claim(UUID userId, String fingerprint) {
-        UUID id = UUID.randomUUID();
-        int rows = jdbcTemplate.update(
-                "insert into bank_imports(id, user_id, fingerprint) values (?, ?, ?) on conflict (user_id, fingerprint) do nothing",
-                id, userId, fingerprint);
-        return rows > 0 ? Optional.of(id) : Optional.empty();
+        try {
+            UUID claimedId = claimTransaction.execute(status -> {
+                UUID id = UUID.randomUUID();
+                int rows = jdbcTemplate.update(
+                        "insert into bank_imports(id, user_id, fingerprint) values (?, ?, ?) on conflict (user_id, fingerprint) do nothing",
+                        id, userId, fingerprint);
+                return rows > 0 ? id : null;
+            });
+            return Optional.ofNullable(claimedId);
+        } catch (DataIntegrityViolationException ex) {
+            return Optional.empty();
+        }
     }
 
     private void markBooked(UUID bankImportId, UUID transactionId) {

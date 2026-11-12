@@ -65,6 +65,27 @@ class HumoBalanceParserTest {
         assertThat(cards.get(0).balance()).isEqualByComparingTo("1250000.00");
     }
 
+    /** Regression for a production crash: a multi-block HUMO *transaction* message also
+     * contains "HUMOCARD *" (the transaction card line), and the amount between one
+     * block's card mention and the next block's used to get misread as that card's
+     * balance -- including its comma-decimal transaction format, which {@code
+     * parseAmount} can't handle, so this used to throw {@code NumberFormatException}
+     * (docs/adr/0006) instead of correctly recognizing "not a balance message". */
+    @Test
+    void doesNotMistakeAMultiBlockTransactionMessageForABalanceMessage() {
+        assertThat(HumoBalanceParser.parse(readResource("/humo/two_blocks_same_card.txt"))).isEmpty();
+        assertThat(HumoBalanceParser.parse(readResource("/humo/transactions_forwarded.txt"))).isEmpty();
+        assertThat(HumoBalanceParser.parse(readResource("/humo/transactions_pasted.txt"))).isEmpty();
+    }
+
+    private String readResource(String path) {
+        try (InputStream in = getClass().getResourceAsStream(path)) {
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException ex) {
+            throw new UncheckedIOException(ex);
+        }
+    }
+
     @Test
     void textWithNoCardBlockIsNotRecognizedAsAHumoMessage() {
         assertThat(HumoBalanceParser.parse("25000 tushlik")).isEmpty();

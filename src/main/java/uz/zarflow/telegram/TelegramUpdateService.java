@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.MessageSource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -54,6 +55,7 @@ import uz.zarflow.humo.HumoImport;
 import uz.zarflow.humo.HumoReconciliation;
 import uz.zarflow.recurring.Recurring;
 import uz.zarflow.savings.Savings;
+import uz.zarflow.shared.common.AdminAlertRequested;
 import uz.zarflow.shared.common.DateRange;
 import uz.zarflow.shared.common.Money;
 import uz.zarflow.shared.common.MoneyFormatter;
@@ -88,6 +90,7 @@ class TelegramUpdateService {
     private final UserParsingMemoryRepository parsingMemoryRepository;
     private final TelegramPendingEntryRepository pendingEntryRepository;
     private final TelegramGateway telegramGateway;
+    private final ApplicationEventPublisher eventPublisher;
     private final MessageSource messageSource;
     private final MoneyFormatter moneyFormatter;
     private final TelegramBotProperties properties;
@@ -113,6 +116,7 @@ class TelegramUpdateService {
             UserParsingMemoryRepository parsingMemoryRepository,
             TelegramPendingEntryRepository pendingEntryRepository,
             TelegramGateway telegramGateway,
+            ApplicationEventPublisher eventPublisher,
             MessageSource messageSource,
             MoneyFormatter moneyFormatter,
             TelegramBotProperties properties,
@@ -135,6 +139,7 @@ class TelegramUpdateService {
         this.parsingMemoryRepository = parsingMemoryRepository;
         this.pendingEntryRepository = pendingEntryRepository;
         this.telegramGateway = telegramGateway;
+        this.eventPublisher = eventPublisher;
         this.messageSource = messageSource;
         this.moneyFormatter = moneyFormatter;
         this.properties = properties;
@@ -221,20 +226,35 @@ class TelegramUpdateService {
         handleQuickInput(text, updateId, chatId, userId, locale);
     }
 
-    /** @return true if the balance or import parser recognized {@code text} and sent its result. */
+    /** @return true if the balance or import parser recognized {@code text} and sent its
+     * result, OR if processing blew up and the fallback below was sent instead -- either
+     * way, the caller must not also try quick-input/fragment-buffering on this text.
+     *
+     * <p>Hard rule (docs/adr/0006): every message that reaches this method gets a reply
+     * -- a summary, a "takror" (duplicate) notice, or this fallback. Never let an
+     * exception here exit the handler silently; the user needs to know their message
+     * didn't go through, and the admin alert needs to fire regardless of whether the
+     * webhook's own top-level catch would otherwise have swallowed it. */
     private boolean tryHumo(String text, Instant asOf, boolean wasForwarded, UUID userId, Locale locale, long chatId) {
-        HumoReconciliation.ProcessResult balanceResult = humoReconciliation.process(userId, text, asOf, wasForwarded);
-        HumoImport.ProcessResult importResult = humoImport.process(userId, text, categoryMemoryLookup(userId));
-        if (!balanceResult.parsed() && !importResult.parsed()) {
-            return false;
+        try {
+            HumoReconciliation.ProcessResult balanceResult = humoReconciliation.process(userId, text, asOf, wasForwarded);
+            HumoImport.ProcessResult importResult = humoImport.process(userId, text, categoryMemoryLookup(userId));
+            if (!balanceResult.parsed() && !importResult.parsed()) {
+                return false;
+            }
+            if (balanceResult.parsed()) {
+                sendHumoResult(chatId, locale, balanceResult, wasForwarded);
+            }
+            if (importResult.parsed()) {
+                sendHumoImportResult(userId, locale, chatId, importResult);
+            }
+            return true;
+        } catch (Exception ex) {
+            log.error("HUMO processing failed for chat {}", chatId, ex);
+            reply(chatId, locale, "bot.humo-unreadable");
+            eventPublisher.publishEvent(new AdminAlertRequested("humo-import", ex));
+            return true;
         }
-        if (balanceResult.parsed()) {
-            sendHumoResult(chatId, locale, balanceResult, wasForwarded);
-        }
-        if (importResult.parsed()) {
-            sendHumoImportResult(userId, locale, chatId, importResult);
-        }
-        return true;
     }
 
     /** Called by {@link HumoFragmentScheduler} once a chat's buffered lines have gone

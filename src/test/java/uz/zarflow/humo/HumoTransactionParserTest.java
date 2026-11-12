@@ -97,6 +97,26 @@ class HumoTransactionParserTest {
     }
 
     @Test
+    void parsesTwoBlocksSharingTheSameCard() {
+        ParsedBatch batch = HumoTransactionParser.parse(fixture("two_blocks_same_card.txt"));
+
+        assertThat(batch.skippedNonUzs()).isZero();
+        assertThat(batch.blocks()).hasSize(2);
+
+        HumoTransactionBlock topUp = batch.blocks().get(0);
+        assertThat(topUp.type()).isEqualTo(TransactionType.INCOME);
+        assertThat(topUp.amount()).isEqualByComparingTo(new BigDecimal("300000.00"));
+        assertThat(topUp.cardLast4()).isEqualTo("8643");
+        assertThat(MerchantNormalizer.isP2p(topUp.merchantKey())).isTrue();
+
+        HumoTransactionBlock taxi = batch.blocks().get(1);
+        assertThat(taxi.type()).isEqualTo(TransactionType.EXPENSE);
+        assertThat(taxi.amount()).isEqualByComparingTo(new BigDecimal("13739.00"));
+        assertThat(taxi.cardLast4()).isEqualTo("8643");
+        assertThat(MerchantNormalizer.categoryHintCode(taxi.merchantKey())).contains("transport");
+    }
+
+    @Test
     void skipsNonUzsAmounts() {
         String block = """
                 💸 Оплата
