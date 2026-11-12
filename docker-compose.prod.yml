@@ -13,6 +13,11 @@ services:
       - "max_connections=20"
       - "-c"
       - "work_mem=2MB"
+    # Loopback-only -- not reachable from outside the server even if the Security Group
+    # were ever misconfigured. Use `ssh -L 5432:localhost:5432 zarflow@<server-ip>` (or a
+    # DataGrip SSH tunnel) to reach it from a local DB client.
+    ports:
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
