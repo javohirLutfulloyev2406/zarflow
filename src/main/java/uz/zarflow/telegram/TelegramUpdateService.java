@@ -49,6 +49,7 @@ import uz.zarflow.category.Categories;
 import uz.zarflow.debt.DebtStatus;
 import uz.zarflow.debt.Debts;
 import uz.zarflow.habit.Habits;
+import uz.zarflow.humo.HumoFragmentDetector;
 import uz.zarflow.humo.HumoImport;
 import uz.zarflow.humo.HumoReconciliation;
 import uz.zarflow.recurring.Recurring;
@@ -83,6 +84,7 @@ class TelegramUpdateService {
     private final Savings savings;
     private final HumoReconciliation humoReconciliation;
     private final HumoImport humoImport;
+    private final HumoFragmentBuffer humoFragmentBuffer;
     private final UserParsingMemoryRepository parsingMemoryRepository;
     private final TelegramPendingEntryRepository pendingEntryRepository;
     private final TelegramGateway telegramGateway;
@@ -107,6 +109,7 @@ class TelegramUpdateService {
             Savings savings,
             HumoReconciliation humoReconciliation,
             HumoImport humoImport,
+            HumoFragmentBuffer humoFragmentBuffer,
             UserParsingMemoryRepository parsingMemoryRepository,
             TelegramPendingEntryRepository pendingEntryRepository,
             TelegramGateway telegramGateway,
@@ -128,6 +131,7 @@ class TelegramUpdateService {
         this.savings = savings;
         this.humoReconciliation = humoReconciliation;
         this.humoImport = humoImport;
+        this.humoFragmentBuffer = humoFragmentBuffer;
         this.parsingMemoryRepository = parsingMemoryRepository;
         this.pendingEntryRepository = pendingEntryRepository;
         this.telegramGateway = telegramGateway;
@@ -202,11 +206,27 @@ class TelegramUpdateService {
         Instant forwardDate = resolveForwardDate(message);
         boolean wasForwarded = forwardDate != null;
         Instant asOf = wasForwarded ? forwardDate : Instant.now(clock);
-        HumoReconciliation.ProcessResult balanceResult = humoReconciliation.process(userId, message.getText(), asOf, wasForwarded);
-        HumoImport.ProcessResult importResult = humoImport.process(userId, message.getText(), categoryMemoryLookup(userId));
-        if (!balanceResult.parsed() && !importResult.parsed()) {
-            handleQuickInput(message.getText(), updateId, chatId, userId, locale);
+        String text = message.getText();
+        if (tryHumo(text, asOf, wasForwarded, userId, locale, chatId)) {
             return;
+        }
+        // @HUMOcardbot forwards routinely split one notification across several
+        // consecutive messages (one per line) -- a lone line like "🕓 12:00 12.11.2026"
+        // won't parse above, but handing it straight to quick-input would misread it as
+        // a manual entry (ADR 0005). Buffer it a moment for its neighbors instead.
+        if (HumoFragmentDetector.looksLikeFragment(text)) {
+            humoFragmentBuffer.offer(chatId, userId, locale, text, wasForwarded ? forwardDate : null);
+            return;
+        }
+        handleQuickInput(text, updateId, chatId, userId, locale);
+    }
+
+    /** @return true if the balance or import parser recognized {@code text} and sent its result. */
+    private boolean tryHumo(String text, Instant asOf, boolean wasForwarded, UUID userId, Locale locale, long chatId) {
+        HumoReconciliation.ProcessResult balanceResult = humoReconciliation.process(userId, text, asOf, wasForwarded);
+        HumoImport.ProcessResult importResult = humoImport.process(userId, text, categoryMemoryLookup(userId));
+        if (!balanceResult.parsed() && !importResult.parsed()) {
+            return false;
         }
         if (balanceResult.parsed()) {
             sendHumoResult(chatId, locale, balanceResult, wasForwarded);
@@ -214,6 +234,20 @@ class TelegramUpdateService {
         if (importResult.parsed()) {
             sendHumoImportResult(userId, locale, chatId, importResult);
         }
+        return true;
+    }
+
+    /** Called by {@link HumoFragmentScheduler} once a chat's buffered lines have gone
+     * quiet -- merges them back into one re-parse attempt, falling back to quick-input
+     * (one entry per line, today's pre-buffering behavior) if they still don't add up to
+     * a recognizable HUMO block. */
+    void processBufferedHumoFragments(HumoFragmentBuffer.ReadyBatch batch) {
+        String merged = String.join("\n", batch.lines());
+        Instant asOf = batch.forwardDate() != null ? batch.forwardDate() : Instant.now(clock);
+        if (tryHumo(merged, asOf, batch.forwardDate() != null, batch.userId(), batch.locale(), batch.chatId())) {
+            return;
+        }
+        handleQuickInput(merged, null, batch.chatId(), batch.userId(), batch.locale());
     }
 
     private Instant resolveForwardDate(Message message) {
