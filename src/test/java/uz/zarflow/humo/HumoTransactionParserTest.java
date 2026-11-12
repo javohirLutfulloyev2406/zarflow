@@ -84,6 +84,19 @@ class HumoTransactionParserTest {
     }
 
     @Test
+    void parsesARealSingleTransactionMessageCorrectly() {
+        ParsedBatch batch = HumoTransactionParser.parse(fixture("transaction_real_single.txt"));
+
+        assertThat(batch.skippedNonUzs()).isZero();
+        assertThat(batch.blocks()).hasSize(1);
+        HumoTransactionBlock block = batch.blocks().get(0);
+        assertThat(block.type()).isEqualTo(TransactionType.EXPENSE);
+        assertThat(block.amount()).isEqualByComparingTo(new BigDecimal("47000.00"));
+        assertThat(block.merchantRaw()).isEqualTo("ZIYODA BARAKA BIZNES");
+        assertThat(block.cardLast4()).isEqualTo("8643");
+    }
+
+    @Test
     void skipsNonUzsAmounts() {
         String block = """
                 💸 Оплата
