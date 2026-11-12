@@ -195,6 +195,9 @@ class TelegramUpdateService {
 
     // ---- Humo balance message reconciliation (docs/PRD.md §7) ----
 
+    // Content format is the gate here, not the forwarder's identity -- pasted text has no
+    // forward_origin to check anyway, and every write below is scoped to this userId, so
+    // fabricated input only ever corrupts the sender's own ledger (ADR 0004).
     private void handleTextOrHumoBalance(Message message, Integer updateId, long chatId, UUID userId, Locale locale) {
         Instant forwardDate = resolveForwardDate(message);
         boolean wasForwarded = forwardDate != null;
